@@ -27,8 +27,8 @@ test("extrai texto, modelo e fontes, sem repetir nem aceitar URL que não seja h
   assert.equal(parsed.text, "Resposta [1][2].");
   assert.equal(parsed.model, "sonar");
   assert.deepEqual(parsed.sources, [
-    { url: "https://a.example/1", title: "Fonte A", date: "2026-10-01" },
-    { url: "https://b.example/2", title: "Fonte B", date: null },
+    { url: "https://a.example/1", title: "Fonte A", date: "2026-10-01", domain: "a.example" },
+    { url: "https://b.example/2", title: "Fonte B", date: null, domain: "b.example" },
   ]);
 });
 

@@ -7,7 +7,7 @@ const steps = [
   { n: "0", name: "Setup", note: "Projeto, login e tabelas", done: true },
   { n: "1", name: "Cadastros", note: "Empresas, limites, marca e perguntas", done: true },
   { n: "2", name: "Coleta com um motor", note: "Perplexity e tela de respostas brutas", done: true },
-  { n: "3", name: "Quatro motores e fila", note: "Demais motores, Inngest e repetições", done: false },
+  { n: "3", name: "Quatro motores e fila", note: "Os quatro motores respondem; falta a fila de rodadas completas", done: false },
   { n: "4", name: "Analisador", note: "Extração estruturada e conjunto de validação", done: false },
   { n: "5", name: "Indicadores e painel", note: "Cálculo, SEI, painel e acesso do cliente", done: false },
   { n: "6", name: "Relatório e agenda", note: "Relatório com recomendações e rodadas agendadas", done: false },
@@ -54,7 +54,7 @@ export default async function HomePage() {
             {!configured
               ? "A aplicação foi publicada, mas ainda não encontrou as variáveis do Supabase. Cadastre NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel e publique de novo."
               : current
-                ? "Os cadastros desta empresa estão abaixo. Já é possível rodar um teste no Perplexity a partir de Perguntas. O painel com os indicadores entra na etapa 5."
+                ? "Os cadastros desta empresa estão abaixo. Já é possível rodar um teste nos quatro motores a partir de Perguntas. O painel com os indicadores entra na etapa 5."
                 : "Ainda não há empresas. O cadastro fica em Controle, junto com os limites de perguntas e de frequência."}
           </p>
           {configured && !current ? (

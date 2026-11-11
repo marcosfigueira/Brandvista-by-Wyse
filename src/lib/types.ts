@@ -17,6 +17,8 @@ export type ClientLimits = {
   active: boolean;
   max_prompts: number;
   tracking_frequency: "semanal" | "quinzenal" | "mensal";
+  /** Vezes que cada pergunta é feita a cada motor em uma rodada completa. */
+  repetitions?: number;
 };
 
 export type Fact = { id: string; kind: string; statement: string };

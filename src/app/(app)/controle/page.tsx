@@ -17,7 +17,7 @@ export default async function ControlePage({
 
   const [clientsResult, limitsResult, promptsResult] = await Promise.all([
     supabase.from("clients").select("id, name, domain, category").order("name"),
-    supabase.from("client_limits").select("client_id, active, max_prompts, tracking_frequency"),
+    supabase.from("client_limits").select("*"),
     supabase.from("prompts").select("client_id").eq("active", true),
   ]);
 
@@ -43,8 +43,9 @@ export default async function ControlePage({
           </h1>
           <p className="text-[15px] leading-relaxed text-[#e3e5e8]">
             Aqui a Wyse define, para cada cliente, quantas perguntas podem ficar
-            ativas e com que frequência o tracking roda. O cliente não vê nem
-            altera esta configuração.
+            ativas, com que frequência o tracking roda e quantas vezes cada
+            pergunta é repetida por rodada. O cliente não vê nem altera esta
+            configuração.
           </p>
         </section>
 
@@ -109,10 +110,13 @@ export default async function ControlePage({
                     <span className="text-[13px] text-muted">
                       {used} de {max} perguntas ativas
                     </span>
+                    <span className="text-[13px] text-muted">
+                      Rodada completa: {used * 4 * (limit?.repetitions ?? 3)} chamadas de coleta
+                    </span>
                   </div>
                   <form
                     action={updateLimits}
-                    className="flex min-w-0 flex-[3_1_420px] flex-wrap items-end gap-3"
+                    className="flex min-w-0 flex-[3_1_560px] flex-wrap items-end gap-3"
                   >
                     <input type="hidden" name="client_id" value={client.id} />
                     <div className="flex w-[130px] flex-col gap-1.5">
@@ -146,6 +150,21 @@ export default async function ControlePage({
                           </option>
                         ))}
                       </select>
+                    </div>
+                    <div className="flex w-[120px] flex-col gap-1.5">
+                      <label htmlFor={`rep-${client.id}`} className={labelClass}>
+                        Repetições
+                      </label>
+                      <input
+                        id={`rep-${client.id}`}
+                        name="repetitions"
+                        type="number"
+                        min={1}
+                        max={5}
+                        defaultValue={limit?.repetitions ?? 3}
+                        required
+                        className={inputClass}
+                      />
                     </div>
                     <label className="flex min-h-12 cursor-pointer items-center gap-2 text-sm font-medium">
                       <input

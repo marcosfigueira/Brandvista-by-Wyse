@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { Flash, Notice, Pill, btnDark, firstParam } from "@/components/ui";
 import { getCurrentClient } from "@/lib/current-client";
+import { ENGINES } from "@/lib/engines";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf, type Prompt } from "@/lib/types";
 import { createPrompt, startTestRun, togglePrompt } from "./actions";
@@ -194,16 +195,33 @@ export default async function PerguntasPage({
           <form
             id="test-run"
             action={startTestRun}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[20px] bg-ground px-5 py-4"
+            className="flex flex-col gap-3 rounded-[20px] bg-ground px-5 py-4"
           >
-            <SubmitButton pendingLabel="Consultando o Perplexity, aguarde…" className={`${btnDark} min-h-12 px-6`}>
-              Rodar teste no Perplexity
-            </SubmitButton>
-            <span className="min-w-0 flex-[1_1_260px] text-[13px] leading-relaxed text-muted">
-              Marque até 5 perguntas ativas na coluna Teste. Cada uma é feita uma vez e
-              as respostas aparecem em Respostas. As perguntas são feitas uma por vez, então
-              pode levar alguns minutos.
-            </span>
+            <fieldset className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <legend className="mb-2 text-[13px] font-semibold">Motores do teste</legend>
+              {ENGINES.map((engine) => (
+                <label key={engine.id} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    name="engine"
+                    value={engine.id}
+                    defaultChecked
+                    className="size-5 cursor-pointer accent-[#000000]"
+                  />
+                  {engine.label}
+                </label>
+              ))}
+            </fieldset>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <SubmitButton pendingLabel="Consultando os motores, aguarde…" className={`${btnDark} min-h-12 px-6`}>
+                Rodar teste
+              </SubmitButton>
+              <span className="min-w-0 flex-[1_1_260px] text-[13px] leading-relaxed text-muted">
+                Marque até 5 perguntas ativas na coluna Teste. Cada uma é feita uma vez a
+                cada motor marcado, e as respostas aparecem em Respostas. Pode levar
+                alguns minutos; não feche a página.
+              </span>
+            </div>
           </form>
         ) : null}
         <p className="text-[13px] leading-relaxed text-muted">
