@@ -6,7 +6,7 @@ import { getSupabaseEnv } from "@/lib/supabase/env";
 const steps = [
   { n: "0", name: "Setup", note: "Projeto, login e tabelas", done: true },
   { n: "1", name: "Cadastros", note: "Empresas, limites, marca e perguntas", done: true },
-  { n: "2", name: "Coleta com um motor", note: "Perplexity e tela de respostas brutas", done: false },
+  { n: "2", name: "Coleta com um motor", note: "Perplexity e tela de respostas brutas", done: true },
   { n: "3", name: "Quatro motores e fila", note: "Demais motores, Inngest e repetições", done: false },
   { n: "4", name: "Analisador", note: "Extração estruturada e conjunto de validação", done: false },
   { n: "5", name: "Indicadores e painel", note: "Cálculo, SEI, painel e acesso do cliente", done: false },
@@ -41,7 +41,7 @@ export default async function HomePage() {
       <div className="flex flex-wrap gap-4">
         <section className="flex min-w-0 flex-[4_1_320px] flex-col gap-5 rounded-card bg-ink p-7 text-paper">
           <span className="inline-flex min-h-[30px] items-center self-start rounded-full bg-brand px-3.5 text-xs font-semibold tracking-wider text-ink uppercase">
-            Etapa 1
+            Etapa 2
           </span>
           <h1 className="text-[40px] leading-[1.1] font-semibold tracking-tight">
             {!configured
@@ -54,7 +54,7 @@ export default async function HomePage() {
             {!configured
               ? "A aplicação foi publicada, mas ainda não encontrou as variáveis do Supabase. Cadastre NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel e publique de novo."
               : current
-                ? "Os cadastros desta empresa estão abaixo. A coleta de respostas entra na etapa 2 e o painel com os indicadores, na etapa 5."
+                ? "Os cadastros desta empresa estão abaixo. Já é possível rodar um teste no Perplexity a partir de Perguntas. O painel com os indicadores entra na etapa 5."
                 : "Ainda não há empresas. O cadastro fica em Controle, junto com os limites de perguntas e de frequência."}
           </p>
           {configured && !current ? (

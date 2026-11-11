@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/submit-button";
 import { Flash, Notice, Pill, btnDark, firstParam } from "@/components/ui";
 import { getCurrentClient } from "@/lib/current-client";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf, type Prompt } from "@/lib/types";
-import { createPrompt, togglePrompt } from "./actions";
+import { createPrompt, startTestRun, togglePrompt } from "./actions";
 import { PromptFields } from "./prompt-fields";
 
 export const metadata = { title: "Perguntas · BrandVista" };
+
+// A rodada de teste consulta o motor e pode levar mais que o padrão.
+export const maxDuration = 120;
 
 export default async function PerguntasPage({
   searchParams,
@@ -123,10 +127,11 @@ export default async function PerguntasPage({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-sm">
+            <table className="w-full min-w-[880px] border-collapse text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
-                  <th scope="col" className="py-2.5 pr-3 font-semibold">Pergunta</th>
+                  <th scope="col" className="py-2.5 pr-3 font-semibold">Teste</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Pergunta</th>
                   <th scope="col" className="px-3 py-2.5 font-semibold">Tipo</th>
                   <th scope="col" className="px-3 py-2.5 font-semibold">Persona</th>
                   <th scope="col" className="px-3 py-2.5 font-semibold">Etapa</th>
@@ -139,7 +144,18 @@ export default async function PerguntasPage({
               <tbody>
                 {visible.map((prompt) => (
                   <tr key={prompt.id} className="border-t border-[#e3e5e8] align-middle">
-                    <td className="py-3 pr-3 font-medium">{prompt.text}</td>
+                    <td className="py-3 pr-3">
+                      <input
+                        type="checkbox"
+                        name="prompt"
+                        value={prompt.id}
+                        form="test-run"
+                        disabled={!prompt.active}
+                        aria-label={`Incluir no teste: ${prompt.text}`}
+                        className="size-5 cursor-pointer accent-[#000000] disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    <td className="px-3 py-3 font-medium">{prompt.text}</td>
                     <td className="px-3 py-3">{labelOf(PROMPT_KINDS, prompt.kind)}</td>
                     <td className="px-3 py-3">{prompt.persona ?? ""}</td>
                     <td className="px-3 py-3">{prompt.journey_stage ?? ""}</td>
@@ -174,6 +190,21 @@ export default async function PerguntasPage({
             </table>
           </div>
         )}
+        {all.some((prompt) => prompt.active) ? (
+          <form
+            id="test-run"
+            action={startTestRun}
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[20px] bg-ground px-5 py-4"
+          >
+            <SubmitButton pendingLabel="Consultando o Perplexity…" className={`${btnDark} min-h-12 px-6`}>
+              Rodar teste no Perplexity
+            </SubmitButton>
+            <span className="min-w-0 flex-[1_1_260px] text-[13px] leading-relaxed text-muted">
+              Marque até 5 perguntas ativas na coluna Teste. Cada uma é feita uma vez e
+              as respostas aparecem em Respostas. Pode levar até um minuto.
+            </span>
+          </form>
+        ) : null}
         <p className="text-[13px] leading-relaxed text-muted">
           Editar o texto de uma pergunta cria uma nova versão. A série histórica
           continua comparando a mesma versão entre rodadas.

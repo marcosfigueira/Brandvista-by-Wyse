@@ -3,7 +3,7 @@
 Ferramenta interna da Wyse que mede como os motores de IA (ChatGPT, Gemini,
 Claude e Perplexity) tratam uma marca. Esta é a v1, construída do zero.
 
-## Estado atual: etapa 1
+## Estado atual: etapa 2
 
 O que já existe:
 
@@ -14,8 +14,11 @@ O que já existe:
   ativas, a frequência de tracking e se o tracking está ativo.
 - **Marca:** Documento-Fonte, fatos verificáveis, atributos e concorrentes.
 - **Perguntas:** biblioteca com tipo, persona, etapa, versão e pausa.
+- **Rodada de teste:** até 5 perguntas feitas ao Perplexity, uma vez cada.
+- **Respostas:** texto bruto de cada resposta, com as fontes citadas.
 
-O que ainda não existe: coleta, análise, indicadores e relatório. A ordem de
+O que ainda não existe: os outros três motores, a fila de rodadas completas,
+análise, indicadores e relatório. A ordem de
 construção aparece na página inicial da aplicação.
 
 ## Banco de dados
@@ -27,6 +30,7 @@ cada, no SQL Editor do Supabase:
 | --- | --- |
 | `0001_init.sql` | Cria as tabelas |
 | `0002_papeis_e_limites.sql` | Papéis de usuário, limites por cliente e regras de acesso |
+| `0003_tipo_de_rodada.sql` | Distingue rodada de teste de rodada completa |
 
 Depois do `0002`, os usuários que já existiam são equipe Wyse. Todo usuário
 criado depois nasce como cliente, sem acesso a nenhuma empresa. Para tornar
@@ -46,8 +50,9 @@ a um cliente acesso a uma empresa, inclua uma linha em `client_members`.
 5. **Publicar.** Dispare um novo deploy na Vercel para as variáveis valerem.
 
 Sem as variáveis, a aplicação abre e mostra "Configuração pendente" em vez de
-quebrar. As demais variáveis de `.env.example` só são usadas a partir da
-etapa 2.
+quebrar. A rodada de teste usa `PERPLEXITY_API_KEY`; as chaves dos outros
+motores entram na etapa 3. Para trocar o modelo do Perplexity, defina
+`PERPLEXITY_MODEL` (o padrão é `sonar`).
 
 ## Rodar no computador
 
@@ -65,6 +70,8 @@ npm run dev
 | `src/app/(app)/controle/` | Empresas e limites, só para a Wyse |
 | `src/app/(app)/marca/` | Documento-Fonte, fatos, atributos, concorrentes |
 | `src/app/(app)/perguntas/` | Biblioteca de perguntas |
+| `src/app/(app)/respostas/` | Respostas brutas de cada rodada |
+| `src/lib/engines/` | Um adaptador por motor de IA, com testes (`npm test`) |
 | `src/lib/session.ts` | Quem está logado e com qual papel |
 | `src/app/login/` | Tela e ações de login |
 | `src/lib/supabase/` | Conexão com o Supabase |
