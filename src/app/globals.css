@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Paleta do BrandVista. Os nomes seguem o papel de cada cor no painel. */
+@theme inline {
+  --color-ground: #f1f2f4;
+  --color-ink: #000000;
+  --color-paper: #ffffff;
+  --color-brand: #ff6200;
+  --color-amber: #ff9900;
+  --color-sun: #ffcc00;
+  --color-blue: #0131ff;
+  --color-navy: #000d3c;
+  --color-line: #cfd1d3;
+  --color-muted: #4c4c4c;
+  --font-sans: "Poppins", system-ui, sans-serif;
+  --radius-card: 28px;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
