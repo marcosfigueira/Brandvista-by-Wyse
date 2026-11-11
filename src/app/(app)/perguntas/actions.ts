@@ -6,6 +6,7 @@ import { getCurrentClient } from "@/lib/current-client";
 import { dbMessage, fail, field, optional } from "@/lib/forms";
 import { requireWyse } from "@/lib/session";
 import { askPerplexity, perplexityModel } from "@/lib/engines/perplexity";
+import { errorRow, okRow } from "@/lib/response-rows";
 import { PROMPT_KINDS } from "@/lib/types";
 
 const PATH = "/perguntas";
@@ -149,24 +150,10 @@ export async function startTestRun(formData: FormData) {
           question: prompt.text,
           searchEnabled: prompt.search_enabled,
         });
-        return {
-          ...base,
-          model: result.model,
-          search_executed: result.searchExecuted,
-          status: "ok",
-          raw_text: result.text,
-          sources: result.sources,
-          raw_payload: result.raw,
-          latency_ms: result.latencyMs,
-        };
+        return okRow(base, result);
       } catch (error) {
-        return {
-          ...base,
-          model,
-          status: "erro",
-          error_message:
-            error instanceof Error ? error.message : "Erro desconhecido ao consultar o motor.",
-        };
+        console.error("Erro do motor:", error instanceof Error ? error.message : error);
+        return errorRow(base, model, error);
       }
     }),
   );

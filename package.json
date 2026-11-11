@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/engines/*.test.ts"
+    "test": "tsx --test src/lib/*.test.ts src/lib/engines/*.test.ts"
   },
   "dependencies": {
     "@fontsource/poppins": "^5.3.0",
