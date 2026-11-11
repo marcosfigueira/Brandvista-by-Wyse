@@ -111,3 +111,54 @@ test("erro 401 vira mensagem que aponta a chave, sem expor o valor", async () =>
     },
   );
 });
+
+test("erro 429 espera e tenta de novo; a resposta seguinte é aproveitada", async () => {
+  process.env.PERPLEXITY_API_KEY = "chave-de-teste";
+  let calls = 0;
+  const waits: number[] = [];
+  globalThis.fetch = (async () => {
+    calls++;
+    return calls < 3
+      ? new Response("rate limit", { status: 429 })
+      : new Response(JSON.stringify(sample), { status: 200 });
+  }) as typeof fetch;
+
+  const result = await askPerplexity(
+    { question: "x", searchEnabled: true },
+    { sleep: async (ms) => void waits.push(ms) },
+  );
+
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [3000, 8000]);
+  assert.equal(result.text, "Resposta [1][2].");
+});
+
+test("erro 429 respeita o cabeçalho retry-after, com teto", async () => {
+  process.env.PERPLEXITY_API_KEY = "chave-de-teste";
+  let calls = 0;
+  const waits: number[] = [];
+  globalThis.fetch = (async () => {
+    calls++;
+    if (calls === 1) return new Response("", { status: 429, headers: { "retry-after": "4" } });
+    if (calls === 2) return new Response("", { status: 429, headers: { "retry-after": "600" } });
+    return new Response(JSON.stringify(sample), { status: 200 });
+  }) as typeof fetch;
+
+  await askPerplexity({ question: "x", searchEnabled: true }, { sleep: async (ms) => void waits.push(ms) });
+  assert.deepEqual(waits, [4000, 20000]);
+});
+
+test("erro 429 persistente desiste após três novas tentativas, com mensagem sobre ritmo", async () => {
+  process.env.PERPLEXITY_API_KEY = "chave-de-teste";
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return new Response("rate limit", { status: 429 });
+  }) as typeof fetch;
+
+  await assert.rejects(
+    () => askPerplexity({ question: "x", searchEnabled: true }, { sleep: async () => {} }),
+    /requisições por minuto/,
+  );
+  assert.equal(calls, 4);
+});

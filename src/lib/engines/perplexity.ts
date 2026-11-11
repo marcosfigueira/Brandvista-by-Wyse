@@ -3,6 +3,12 @@ import { EngineError, type EngineRequest, type EngineResult, type EngineSource }
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const TIMEOUT_MS = 90_000;
 
+/** Esperas, em ms, antes de cada nova tentativa quando a API pede calma (429). */
+const RETRY_WAITS_MS = [3_000, 8_000, 15_000];
+const MAX_RETRY_AFTER_MS = 20_000;
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /** Modelo usado. Pode ser trocado pela variável PERPLEXITY_MODEL. */
 export function perplexityModel(): string {
   return process.env.PERPLEXITY_MODEL || "sonar";
@@ -62,12 +68,20 @@ export function parsePerplexityResponse(payload: unknown): {
   };
 }
 
-/** Faz uma pergunta ao Perplexity, como um usuário faria, sem instrução extra. */
-export async function askPerplexity(request: EngineRequest): Promise<EngineResult> {
+/**
+ * Faz uma pergunta ao Perplexity, como um usuário faria, sem instrução extra.
+ * Se a API responder que o ritmo de requisições foi excedido (429), espera e
+ * tenta de novo, até três vezes.
+ */
+export async function askPerplexity(
+  request: EngineRequest,
+  options: { sleep?: (ms: number) => Promise<void> } = {},
+): Promise<EngineResult> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
     throw new EngineError("A variável PERPLEXITY_API_KEY não está configurada na Vercel.");
   }
+  const sleep = options.sleep ?? realSleep;
 
   const model = perplexityModel();
   const body: Record<string, unknown> = {
@@ -81,47 +95,60 @@ export async function askPerplexity(request: EngineRequest): Promise<EngineResul
   }
 
   const startedAt = Date.now();
-  let response: Response;
-  try {
-    response = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      cache: "no-store",
-    });
-  } catch (error) {
-    const timedOut = error instanceof Error && error.name === "TimeoutError";
-    throw new EngineError(
-      timedOut
-        ? "O Perplexity não respondeu dentro do tempo limite."
-        : "Não foi possível conectar ao Perplexity.",
-    );
+
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        cache: "no-store",
+      });
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === "TimeoutError";
+      throw new EngineError(
+        timedOut
+          ? "O Perplexity não respondeu dentro do tempo limite."
+          : "Não foi possível conectar ao Perplexity.",
+      );
+    }
+
+    if (response.status === 429 && attempt < RETRY_WAITS_MS.length) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const wait =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(retryAfter * 1000, MAX_RETRY_AFTER_MS)
+          : RETRY_WAITS_MS[attempt];
+      await sleep(wait);
+      continue;
+    }
+
+    if (!response.ok) {
+      const detail = (await response.text().catch(() => "")).slice(0, 300);
+      const hint =
+        response.status === 401
+          ? " Confira a chave PERPLEXITY_API_KEY."
+          : response.status === 429
+            ? " O limite de requisições por minuto da conta foi atingido, mesmo após novas tentativas."
+            : "";
+      throw new EngineError(`O Perplexity devolveu erro ${response.status}.${hint} ${detail}`.trim());
+    }
+
+    const payload: unknown = await response.json();
+    const parsed = parsePerplexityResponse(payload);
+
+    return {
+      text: parsed.text,
+      sources: parsed.sources,
+      searchExecuted: request.searchEnabled && parsed.sources.length > 0,
+      model: parsed.model ?? model,
+      raw: payload,
+      latencyMs: Date.now() - startedAt,
+    };
   }
-
-  if (!response.ok) {
-    const detail = (await response.text().catch(() => "")).slice(0, 300);
-    const hint =
-      response.status === 401
-        ? " Confira a chave PERPLEXITY_API_KEY."
-        : response.status === 429
-          ? " Limite de uso ou de créditos atingido."
-          : "";
-    throw new EngineError(`O Perplexity devolveu erro ${response.status}.${hint} ${detail}`.trim());
-  }
-
-  const payload: unknown = await response.json();
-  const parsed = parsePerplexityResponse(payload);
-
-  return {
-    text: parsed.text,
-    sources: parsed.sources,
-    searchExecuted: request.searchEnabled && parsed.sources.length > 0,
-    model: parsed.model ?? model,
-    raw: payload,
-    latencyMs: Date.now() - startedAt,
-  };
 }

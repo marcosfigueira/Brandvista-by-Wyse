@@ -10,7 +10,7 @@ import { PromptFields } from "./prompt-fields";
 export const metadata = { title: "Perguntas · BrandVista" };
 
 // A rodada de teste consulta o motor e pode levar mais que o padrão.
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export default async function PerguntasPage({
   searchParams,
@@ -196,12 +196,13 @@ export default async function PerguntasPage({
             action={startTestRun}
             className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[20px] bg-ground px-5 py-4"
           >
-            <SubmitButton pendingLabel="Consultando o Perplexity…" className={`${btnDark} min-h-12 px-6`}>
+            <SubmitButton pendingLabel="Consultando o Perplexity, aguarde…" className={`${btnDark} min-h-12 px-6`}>
               Rodar teste no Perplexity
             </SubmitButton>
             <span className="min-w-0 flex-[1_1_260px] text-[13px] leading-relaxed text-muted">
               Marque até 5 perguntas ativas na coluna Teste. Cada uma é feita uma vez e
-              as respostas aparecem em Respostas. Pode levar até um minuto.
+              as respostas aparecem em Respostas. As perguntas são feitas uma por vez, então
+              pode levar alguns minutos.
             </span>
           </form>
         ) : null}

@@ -6,7 +6,7 @@ import { getCurrentClient } from "@/lib/current-client";
 import { dbMessage, fail, field, optional } from "@/lib/forms";
 import { requireWyse } from "@/lib/session";
 import { askPerplexity, perplexityModel } from "@/lib/engines/perplexity";
-import { errorRow, okRow } from "@/lib/response-rows";
+import { errorRow, okRow, type ResponseRow } from "@/lib/response-rows";
 import { PROMPT_KINDS } from "@/lib/types";
 
 const PATH = "/perguntas";
@@ -135,28 +135,29 @@ export async function startTestRun(formData: FormData) {
     );
   }
 
+  // Uma pergunta por vez: disparar todas juntas estoura o limite de
+  // requisições por minuto da API.
   const model = perplexityModel();
-  const rows = await Promise.all(
-    prompts.map(async (prompt) => {
-      const base = {
-        run_id: run.id,
-        prompt_id: prompt.id,
-        engine: "perplexity",
-        repetition: 1,
-        search_enabled: prompt.search_enabled,
-      };
-      try {
-        const result = await askPerplexity({
-          question: prompt.text,
-          searchEnabled: prompt.search_enabled,
-        });
-        return okRow(base, result);
-      } catch (error) {
-        console.error("Erro do motor:", error instanceof Error ? error.message : error);
-        return errorRow(base, model, error);
-      }
-    }),
-  );
+  const rows: ResponseRow[] = [];
+  for (const prompt of prompts) {
+    const base = {
+      run_id: run.id,
+      prompt_id: prompt.id,
+      engine: "perplexity",
+      repetition: 1,
+      search_enabled: prompt.search_enabled,
+    };
+    try {
+      const result = await askPerplexity({
+        question: prompt.text,
+        searchEnabled: prompt.search_enabled,
+      });
+      rows.push(okRow(base, result));
+    } catch (error) {
+      console.error("Erro do motor:", error instanceof Error ? error.message : error);
+      rows.push(errorRow(base, model, error));
+    }
+  }
 
   const { error: insertError } = await supabase.from("responses").insert(rows);
   const allFailed = rows.every((row) => row.status === "erro");
