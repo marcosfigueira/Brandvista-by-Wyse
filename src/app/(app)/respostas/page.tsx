@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Flash, Notice, Pill, firstParam } from "@/components/ui";
 import { getCurrentClient } from "@/lib/current-client";
+import { ENGINES, engineLabel } from "@/lib/engines";
 import type { EngineSource } from "@/lib/engines/types";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf } from "@/lib/types";
@@ -28,13 +29,6 @@ type ResponseRow = {
   sources: EngineSource[] | null;
   latency_ms: number | null;
   prompts: { text: string; kind: string; version: number } | null;
-};
-
-const ENGINE_LABELS: Record<string, string> = {
-  perplexity: "Perplexity",
-  chatgpt: "ChatGPT",
-  gemini: "Gemini",
-  claude: "Claude",
 };
 
 const RUN_STATUS: Record<string, string> = {
@@ -115,7 +109,15 @@ export default async function RespostasPage({
     )
     .eq("run_id", selected.id)
     .order("created_at");
-  const responses = (responsesData ?? []) as unknown as ResponseRow[];
+  // Agrupa por pergunta e, dentro dela, na ordem fixa dos motores, para
+  // comparar lado a lado o que cada motor respondeu à mesma pergunta.
+  const engineOrder = new Map<string, number>(ENGINES.map((engine, index) => [engine.id, index]));
+  const responses = ((responsesData ?? []) as unknown as ResponseRow[]).sort(
+    (a, b) =>
+      (a.prompts?.text ?? "").localeCompare(b.prompts?.text ?? "", "pt-BR") ||
+      (engineOrder.get(a.engine) ?? 99) - (engineOrder.get(b.engine) ?? 99) ||
+      a.repetition - b.repetition,
+  );
   const failed = responses.filter((response) => response.status === "erro").length;
 
   return (
@@ -158,7 +160,7 @@ export default async function RespostasPage({
               </h2>
               <span className="text-sm font-medium">
                 {dateFormat.format(new Date(selected.created_at))} ·{" "}
-                {selected.engines.map((engine) => ENGINE_LABELS[engine] ?? engine).join(", ")}
+                {selected.engines.map(engineLabel).join(", ")}
               </span>
             </div>
             <div className="flex flex-col items-end gap-0.5">
@@ -185,7 +187,7 @@ export default async function RespostasPage({
             return (
               <article key={response.id} className="flex flex-col gap-4 rounded-card bg-paper p-7">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <Pill tone="ink">{ENGINE_LABELS[response.engine] ?? response.engine}</Pill>
+                  <Pill tone="ink">{engineLabel(response.engine)}</Pill>
                   {response.prompts ? (
                     <Pill tone="line">{labelOf(PROMPT_KINDS, response.prompts.kind)}</Pill>
                   ) : null}
@@ -234,11 +236,11 @@ export default async function RespostasPage({
                             rel="noopener noreferrer"
                             className="font-medium underline"
                           >
-                            {source.title ?? hostOf(source.url)}
+                            {source.title ?? source.domain ?? hostOf(source.url)}
                           </a>
                           <span className="text-muted">
                             {" "}
-                            · {hostOf(source.url)}
+                            · {source.domain ?? hostOf(source.url)}
                             {source.date ? ` · ${source.date}` : ""}
                           </span>
                         </li>

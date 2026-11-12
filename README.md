@@ -14,11 +14,12 @@ O que já existe:
   ativas, a frequência de tracking e se o tracking está ativo.
 - **Marca:** Documento-Fonte, fatos verificáveis, atributos e concorrentes.
 - **Perguntas:** biblioteca com tipo, persona, etapa, versão e pausa.
-- **Rodada de teste:** até 5 perguntas feitas ao Perplexity, uma vez cada.
+- **Rodada de teste:** até 5 perguntas, uma vez cada, a qualquer combinação
+  dos quatro motores (ChatGPT, Gemini, Claude e Perplexity).
 - **Respostas:** texto bruto de cada resposta, com as fontes citadas.
 
-O que ainda não existe: os outros três motores, a fila de rodadas completas,
-análise, indicadores e relatório. A ordem de
+O que ainda não existe: a fila de rodadas completas, análise, indicadores e
+relatório. A ordem de
 construção aparece na página inicial da aplicação.
 
 ## Banco de dados
@@ -31,6 +32,7 @@ cada, no SQL Editor do Supabase:
 | `0001_init.sql` | Cria as tabelas |
 | `0002_papeis_e_limites.sql` | Papéis de usuário, limites por cliente e regras de acesso |
 | `0003_tipo_de_rodada.sql` | Distingue rodada de teste de rodada completa |
+| `0004_repeticoes.sql` | Repetições por rodada, por cliente |
 
 Depois do `0002`, os usuários que já existiam são equipe Wyse. Todo usuário
 criado depois nasce como cliente, sem acesso a nenhuma empresa. Para tornar
@@ -50,9 +52,20 @@ a um cliente acesso a uma empresa, inclua uma linha em `client_members`.
 5. **Publicar.** Dispare um novo deploy na Vercel para as variáveis valerem.
 
 Sem as variáveis, a aplicação abre e mostra "Configuração pendente" em vez de
-quebrar. A rodada de teste usa `PERPLEXITY_API_KEY`; as chaves dos outros
-motores entram na etapa 3. Para trocar o modelo do Perplexity, defina
-`PERPLEXITY_MODEL` (o padrão é `sonar`).
+quebrar. Cada motor usa a sua chave: `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+`ANTHROPIC_API_KEY` e `PERPLEXITY_API_KEY`.
+
+## Modelos
+
+O modelo de cada motor pode ser trocado por variável de ambiente, sem mudar
+código:
+
+| Variável | Padrão |
+| --- | --- |
+| `OPENAI_MODEL` | `chat-latest` |
+| `GEMINI_MODEL` | `gemini-3.8-flash` |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5-5` |
+| `PERPLEXITY_MODEL` | `sonar` |
 
 ## Rodar no computador
 

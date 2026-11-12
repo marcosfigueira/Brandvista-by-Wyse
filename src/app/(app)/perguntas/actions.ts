@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getCurrentClient } from "@/lib/current-client";
 import { dbMessage, fail, field, optional } from "@/lib/forms";
 import { requireWyse } from "@/lib/session";
-import { askPerplexity, perplexityModel } from "@/lib/engines/perplexity";
-import { errorRow, okRow } from "@/lib/response-rows";
+import { ENGINES, type Engine } from "@/lib/engines";
+import { errorRow, okRow, type ResponseRow } from "@/lib/response-rows";
 import { PROMPT_KINDS } from "@/lib/types";
 
 const PATH = "/perguntas";
@@ -79,9 +79,9 @@ export async function revisePrompt(formData: FormData) {
 }
 
 /**
- * Rodada de teste: faz até 5 perguntas ao Perplexity, uma vez cada, e guarda
- * as respostas brutas. Serve para conferir as respostas antes das rodadas
- * completas; não entra no histórico de indicadores.
+ * Rodada de teste: faz até 5 perguntas, uma vez cada, aos motores escolhidos e
+ * guarda as respostas brutas. Serve para conferir as respostas antes das
+ * rodadas completas; não entra no histórico de indicadores.
  */
 export async function startTestRun(formData: FormData) {
   const { supabase } = await requireWyse();
@@ -93,6 +93,10 @@ export async function startTestRun(formData: FormData) {
   if (ids.length > TEST_RUN_MAX) {
     fail(PATH, `O teste aceita até ${TEST_RUN_MAX} perguntas por vez. Você marcou ${ids.length}.`);
   }
+
+  const chosen = new Set(formData.getAll("engine").map(String));
+  const engines = ENGINES.filter((engine) => chosen.has(engine.id));
+  if (engines.length === 0) fail(PATH, "Marque ao menos um motor para o teste.");
 
   const [promptsResult, limitsResult] = await Promise.all([
     supabase
@@ -119,7 +123,7 @@ export async function startTestRun(formData: FormData) {
     .insert({
       client_id: current.id,
       kind: "teste",
-      engines: ["perplexity"],
+      engines: engines.map((engine) => engine.id),
       repetitions: 1,
       status: "coletando",
       started_at: new Date().toISOString(),
@@ -135,28 +139,36 @@ export async function startTestRun(formData: FormData) {
     );
   }
 
-  const model = perplexityModel();
-  const rows = await Promise.all(
-    prompts.map(async (prompt) => {
+  // Os motores rodam lado a lado, mas cada um recebe uma pergunta por vez:
+  // disparar várias juntas estoura o limite de requisições por minuto.
+  const askAll = async (engine: Engine): Promise<ResponseRow[]> => {
+    const rows: ResponseRow[] = [];
+    for (const prompt of prompts) {
       const base = {
         run_id: run.id,
         prompt_id: prompt.id,
-        engine: "perplexity",
+        engine: engine.id,
         repetition: 1,
         search_enabled: prompt.search_enabled,
       };
       try {
-        const result = await askPerplexity({
+        const result = await engine.ask({
           question: prompt.text,
           searchEnabled: prompt.search_enabled,
         });
-        return okRow(base, result);
+        rows.push(okRow(base, result));
       } catch (error) {
-        console.error("Erro do motor:", error instanceof Error ? error.message : error);
-        return errorRow(base, model, error);
+        console.error(
+          `Erro do motor ${engine.id}:`,
+          error instanceof Error ? error.message : error,
+        );
+        rows.push(errorRow(base, engine.model(), error));
       }
-    }),
-  );
+    }
+    return rows;
+  };
+
+  const rows = (await Promise.all(engines.map(askAll))).flat();
 
   const { error: insertError } = await supabase.from("responses").insert(rows);
   const allFailed = rows.every((row) => row.status === "erro");

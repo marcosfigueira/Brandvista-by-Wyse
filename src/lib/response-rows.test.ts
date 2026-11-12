@@ -13,7 +13,7 @@ const base = {
 test("linhas de sucesso e de erro têm exatamente os mesmos campos", () => {
   const ok = okRow(base, {
     text: "t",
-    sources: [{ url: "https://a.example", title: null, date: null }],
+    sources: [{ url: "https://a.example", title: null, date: null, domain: "a.example" }],
     searchExecuted: true,
     model: "sonar",
     raw: {},

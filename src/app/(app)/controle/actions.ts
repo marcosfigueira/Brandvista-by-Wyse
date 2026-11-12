@@ -48,6 +48,7 @@ export async function updateLimits(formData: FormData) {
   const clientId = field(formData, "client_id");
   const maxPrompts = Number.parseInt(field(formData, "max_prompts"), 10);
   const frequency = field(formData, "tracking_frequency");
+  const repetitions = Number.parseInt(field(formData, "repetitions"), 10);
 
   if (!clientId) fail(PATH, "Empresa não identificada.");
   if (!Number.isInteger(maxPrompts) || maxPrompts < 1 || maxPrompts > 500) {
@@ -56,19 +57,31 @@ export async function updateLimits(formData: FormData) {
   if (!FREQUENCIES.some((item) => item.value === frequency)) {
     fail(PATH, "Frequência inválida.");
   }
+  if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 5) {
+    fail(PATH, "As repetições por rodada devem ficar entre 1 e 5.");
+  }
 
   const { error } = await supabase.from("client_limits").upsert(
     {
       client_id: clientId,
       max_prompts: maxPrompts,
       tracking_frequency: frequency,
+      repetitions,
       active: formData.get("active") === "on",
       updated_at: new Date().toISOString(),
     },
     { onConflict: "client_id" },
   );
 
-  if (error) fail(PATH, dbMessage(error, "Não foi possível salvar os limites."));
+  if (error) {
+    fail(
+      PATH,
+      dbMessage(
+        error,
+        "Não foi possível salvar os limites. Confira se o arquivo 0004_repeticoes.sql foi executado no Supabase.",
+      ),
+    );
+  }
 
   revalidatePath(PATH);
   revalidatePath("/perguntas");
