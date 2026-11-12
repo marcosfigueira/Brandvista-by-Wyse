@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentClient } from "@/lib/current-client";
 import { dbMessage, fail, field, list, optional } from "@/lib/forms";
 import { requireWyse } from "@/lib/session";
-import { FACT_KINDS } from "@/lib/types";
+import { COUNTRIES, FACT_KINDS } from "@/lib/types";
 
 const PATH = "/marca";
 
@@ -23,6 +23,8 @@ export async function saveBrand(formData: FormData) {
   if (!name) fail(PATH, "Informe o nome da marca.");
 
   const description = optional(formData, "canonical_description");
+  const country = field(formData, "country");
+  if (!COUNTRIES.some((item) => item.value === country)) fail(PATH, "País inválido.");
 
   const { data: before } = await supabase
     .from("clients")
@@ -39,13 +41,22 @@ export async function saveBrand(formData: FormData) {
       name_variants: list(formData, "name_variants"),
       domain: optional(formData, "domain"),
       category: optional(formData, "category"),
+      country,
       canonical_description: description,
       source_version: (before?.source_version ?? 1) + (changed ? 1 : 0),
       updated_at: new Date().toISOString(),
     })
     .eq("id", clientId);
 
-  if (error) fail(PATH, dbMessage(error, "Não foi possível salvar a marca."));
+  if (error) {
+    fail(
+      PATH,
+      dbMessage(
+        error,
+        "Não foi possível salvar a marca. Confira se o arquivo 0005_pais_da_marca.sql foi executado no Supabase.",
+      ),
+    );
+  }
   revalidatePath("/", "layout");
 }
 

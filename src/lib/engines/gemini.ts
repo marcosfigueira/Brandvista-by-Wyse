@@ -70,7 +70,10 @@ export function parseGeminiResponse(payload: unknown): {
   };
 }
 
-/** Faz uma pergunta ao Gemini pela API, como um usuário faria. */
+/**
+ * Faz uma pergunta ao Gemini pela API, como um usuário faria. A API do Gemini
+ * não tem parâmetro de localização, então o país da marca não é enviado.
+ */
 export async function askGemini(
   request: EngineRequest,
   options: AskOptions = {},

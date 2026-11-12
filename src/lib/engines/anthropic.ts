@@ -2,6 +2,7 @@ import { postJson, requireKey } from "./http";
 import {
   EngineError,
   SourceList,
+  countryOf,
   isRecord,
   type AskOptions,
   type EngineRequest,
@@ -86,7 +87,7 @@ export async function askAnthropic(
         type: webSearchTool(),
         name: "web_search",
         max_uses: 5,
-        user_location: { type: "approximate", country: "BR" },
+        user_location: { type: "approximate", country: countryOf(request) },
       },
     ];
   }

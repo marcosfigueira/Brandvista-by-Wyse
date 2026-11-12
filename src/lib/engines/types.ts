@@ -28,7 +28,18 @@ export type EngineRequest = {
   question: string;
   /** Falso para perguntas que medem o que o modelo sabe sem consultar a web. */
   searchEnabled: boolean;
+  /**
+   * País do usuário, em duas letras (ISO 3166-1), enviado como localização
+   * aos motores que aceitam. Sem valor, vale Brasil.
+   */
+  country?: string;
 };
+
+/** País a enviar ao motor: o do pedido, se for um código válido; senão, Brasil. */
+export function countryOf(request: EngineRequest): string {
+  const value = request.country?.trim().toUpperCase() ?? "";
+  return /^[A-Z]{2}$/.test(value) ? value : "BR";
+}
 
 export type AskOptions = {
   /** Trocável nos testes, para não esperar de verdade entre tentativas. */

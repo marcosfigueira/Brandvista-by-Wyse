@@ -216,3 +216,26 @@ test("todos os motores: erro 503 também gera nova tentativa", async () => {
   assert.equal(calls, 2);
   assert.equal(result.text, "A marca X é citada.");
 });
+
+test("país da marca: enviado ao ChatGPT, ao Claude e ao Perplexity; código inválido vira Brasil", async () => {
+  process.env.OPENAI_API_KEY = "k";
+  process.env.ANTHROPIC_API_KEY = "a";
+  process.env.PERPLEXITY_API_KEY = "p";
+  const { askPerplexity } = await import("./perplexity");
+
+  let seen = mockFetch(openaiSample);
+  await askOpenAI({ question: "x", searchEnabled: true, country: "pt" });
+  await askOpenAI({ question: "x", searchEnabled: true, country: "Portugal" });
+  const location = (index: number) =>
+    ((seen[index].body.tools as Record<string, unknown>[])[0].user_location as { country: string }).country;
+  assert.equal(location(0), "PT");
+  assert.equal(location(1), "BR");
+
+  seen = mockFetch(claudeSample);
+  await askAnthropic({ question: "x", searchEnabled: true, country: "US" });
+  assert.equal(location(0), "US");
+
+  seen = mockFetch({ model: "sonar", choices: [{ message: { content: "ok" } }] });
+  await askPerplexity({ question: "x", searchEnabled: true, country: "MX" });
+  assert.deepEqual(seen[0].body.web_search_options, { user_location: { country: "MX" } });
+});

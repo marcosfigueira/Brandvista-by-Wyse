@@ -98,7 +98,7 @@ export async function startTestRun(formData: FormData) {
   const engines = ENGINES.filter((engine) => chosen.has(engine.id));
   if (engines.length === 0) fail(PATH, "Marque ao menos um motor para o teste.");
 
-  const [promptsResult, limitsResult] = await Promise.all([
+  const [promptsResult, limitsResult, clientResult] = await Promise.all([
     supabase
       .from("prompts")
       .select("id, text, search_enabled")
@@ -106,7 +106,10 @@ export async function startTestRun(formData: FormData) {
       .eq("active", true)
       .in("id", ids),
     supabase.from("client_limits").select("active").eq("client_id", current.id).maybeSingle(),
+    supabase.from("clients").select("*").eq("id", current.id).maybeSingle(),
   ]);
+  // País da marca; ausente antes da migração 0005, e aí vale Brasil.
+  const country = (clientResult.data as { country?: string } | null)?.country;
 
   const prompts = (promptsResult.data ?? []) as {
     id: string;
@@ -155,6 +158,7 @@ export async function startTestRun(formData: FormData) {
         const result = await engine.ask({
           question: prompt.text,
           searchEnabled: prompt.search_enabled,
+          country,
         });
         rows.push(okRow(base, result));
       } catch (error) {
