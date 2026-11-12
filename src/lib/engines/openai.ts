@@ -2,6 +2,7 @@ import { postJson, requireKey } from "./http";
 import {
   EngineError,
   SourceList,
+  countryOf,
   isRecord,
   type AskOptions,
   type EngineRequest,
@@ -73,7 +74,7 @@ export async function askOpenAI(
   const body: Record<string, unknown> = { model, input: request.question };
   if (request.searchEnabled) {
     body.tools = [
-      { type: "web_search", user_location: { type: "approximate", country: "BR" } },
+      { type: "web_search", user_location: { type: "approximate", country: countryOf(request) } },
     ];
   }
 

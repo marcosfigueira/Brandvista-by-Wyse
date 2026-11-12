@@ -33,6 +33,7 @@ cada, no SQL Editor do Supabase:
 | `0002_papeis_e_limites.sql` | Papéis de usuário, limites por cliente e regras de acesso |
 | `0003_tipo_de_rodada.sql` | Distingue rodada de teste de rodada completa |
 | `0004_repeticoes.sql` | Repetições por rodada, por cliente |
+| `0005_pais_da_marca.sql` | País (mercado) de cada marca |
 
 Depois do `0002`, os usuários que já existiam são equipe Wyse. Todo usuário
 criado depois nasce como cliente, sem acesso a nenhuma empresa. Para tornar

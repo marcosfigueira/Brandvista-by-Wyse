@@ -10,6 +10,8 @@ export type Client = {
   category: string | null;
   canonical_description: string | null;
   source_version: number;
+  /** País (mercado) da marca, em duas letras. Ausente antes da migração 0005. */
+  country?: string;
 };
 
 export type ClientLimits = {
@@ -59,6 +61,25 @@ export const FACT_KINDS = [
 ] as const;
 
 export const JOURNEY_STAGES = ["Descoberta", "Consideração", "Decisão"] as const;
+
+/** Mercados oferecidos no cadastro da marca. O valor é o código ISO de duas letras. */
+export const COUNTRIES = [
+  { value: "BR", label: "Brasil" },
+  { value: "PT", label: "Portugal" },
+  { value: "US", label: "Estados Unidos" },
+  { value: "MX", label: "México" },
+  { value: "AR", label: "Argentina" },
+  { value: "CL", label: "Chile" },
+  { value: "CO", label: "Colômbia" },
+  { value: "PE", label: "Peru" },
+  { value: "UY", label: "Uruguai" },
+  { value: "ES", label: "Espanha" },
+  { value: "GB", label: "Reino Unido" },
+  { value: "FR", label: "França" },
+  { value: "DE", label: "Alemanha" },
+  { value: "IT", label: "Itália" },
+  { value: "CA", label: "Canadá" },
+] as const;
 
 export const FREQUENCIES = [
   { value: "semanal", label: "Semanal" },

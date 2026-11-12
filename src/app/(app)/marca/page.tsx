@@ -12,6 +12,7 @@ import {
 import { getCurrentClient } from "@/lib/current-client";
 import { requireWyse } from "@/lib/session";
 import {
+  COUNTRIES,
   FACT_KINDS,
   labelOf,
   type Attribute,
@@ -65,7 +66,7 @@ export default async function MarcaPage({
   const [clientResult, factsResult, attributesResult, competitorsResult] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, name_variants, domain, category, canonical_description, source_version")
+      .select("*")
       .eq("id", current.id)
       .single(),
     supabase.from("brand_facts").select("id, kind, statement").eq("client_id", current.id).order("created_at"),
@@ -119,6 +120,28 @@ export default async function MarcaPage({
                 </label>
                 <input id="b-category" name="category" defaultValue={client.category ?? ""} className={inputClass} />
               </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="b-country" className={labelClass}>
+                País (mercado)
+              </label>
+              <select
+                id="b-country"
+                name="country"
+                defaultValue={client.country ?? "BR"}
+                aria-describedby="b-country-help"
+                className={inputClass}
+              >
+                {COUNTRIES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <span id="b-country-help" className="text-xs text-muted">
+                Enviado aos motores como localização do usuário. O texto das perguntas
+                não é alterado. O Gemini não aceita esse parâmetro.
+              </span>
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="b-variants" className={labelClass}>

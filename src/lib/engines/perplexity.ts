@@ -2,6 +2,7 @@ import { postJson, requireKey } from "./http";
 import {
   EngineError,
   SourceList,
+  countryOf,
   isRecord,
   type AskOptions,
   type EngineRequest,
@@ -65,7 +66,7 @@ export async function askPerplexity(
     messages: [{ role: "user", content: request.question }],
   };
   if (request.searchEnabled) {
-    body.web_search_options = { user_location: { country: "BR" } };
+    body.web_search_options = { user_location: { country: countryOf(request) } };
   } else {
     body.disable_search = true;
   }
