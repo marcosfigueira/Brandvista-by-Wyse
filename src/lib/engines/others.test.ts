@@ -239,3 +239,14 @@ test("país da marca: enviado ao ChatGPT, ao Claude e ao Perplexity; código inv
   await askPerplexity({ question: "x", searchEnabled: true, country: "MX" });
   assert.deepEqual(seen[0].body.web_search_options, { user_location: { country: "MX" } });
 });
+
+test("stoppedByLength reconhece o corte por tamanho em cada API", async () => {
+  const { stoppedByLength } = await import("./types");
+  assert.equal(stoppedByLength({ stop_reason: "max_tokens" }), true);
+  assert.equal(stoppedByLength({ stop_reason: "end_turn" }), false);
+  assert.equal(stoppedByLength({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" } }), true);
+  assert.equal(stoppedByLength({ choices: [{ finish_reason: "length" }] }), true);
+  assert.equal(stoppedByLength({ choices: [{ finish_reason: "stop" }] }), false);
+  assert.equal(stoppedByLength({ steps: [{ type: "model_output", finish_reason: "MAX_TOKENS" }] }), true);
+  assert.equal(stoppedByLength(null), false);
+});

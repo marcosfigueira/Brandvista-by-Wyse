@@ -29,6 +29,7 @@ type ResponseRow = {
   repetition: number;
   search_enabled: boolean;
   search_executed: boolean | null;
+  truncated: boolean | null;
   status: string;
   error_message: string | null;
   raw_text: string | null;
@@ -113,7 +114,7 @@ export default async function RespostasPage({
   const { data: responsesData } = await supabase
     .from("responses")
     .select(
-      "id, engine, model, repetition, search_enabled, search_executed, status, error_message, raw_text, sources, latency_ms, prompts(text, kind, version), analyses(analyzer_version, analyzer_model, result)",
+      "id, engine, model, repetition, search_enabled, search_executed, truncated, status, error_message, raw_text, sources, latency_ms, prompts(text, kind, version), analyses(analyzer_version, analyzer_model, result)",
     )
     .eq("run_id", selected.id)
     .order("created_at");
@@ -277,6 +278,7 @@ export default async function RespostasPage({
                       {response.search_enabled ? "Respondeu sem buscar" : "Sem busca, por definição"}
                     </Pill>
                   )}
+                  {response.truncated ? <Pill tone="brand">Resposta cortada</Pill> : null}
                   <span className="text-muted">
                     {response.model}
                     {response.latency_ms ? ` · ${(response.latency_ms / 1000).toFixed(1).replace(".", ",")} s` : ""}

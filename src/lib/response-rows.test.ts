@@ -15,6 +15,7 @@ test("linhas de sucesso e de erro têm exatamente os mesmos campos", () => {
     text: "t",
     sources: [{ url: "https://a.example", title: null, date: null, domain: "a.example" }],
     searchExecuted: true,
+    truncated: false,
     model: "sonar",
     raw: {},
     latencyMs: 10,

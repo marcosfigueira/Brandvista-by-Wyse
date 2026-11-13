@@ -8,12 +8,15 @@ import {
   type EngineRequest,
   type EngineResult,
   type EngineSource,
+  stoppedByLength,
 } from "./types";
 
 const ENDPOINT = "https://api.anthropic.com/v1/messages";
 const KEY = "ANTHROPIC_API_KEY";
 const API_VERSION = "2023-06-01";
-const MAX_TOKENS = 4096;
+// A API exige um teto. Este é alto o bastante para não cortar respostas comuns;
+// se for atingido, a resposta fica marcada como cortada.
+const MAX_TOKENS = 8192;
 
 /** Modelo usado. Pode ser trocado pela variável ANTHROPIC_MODEL. */
 export function anthropicModel(): string {
@@ -106,6 +109,7 @@ export async function askAnthropic(
   return {
     text: parsed.text,
     sources: parsed.sources,
+    truncated: stoppedByLength(payload),
     searchExecuted: parsed.searchExecuted,
     model: parsed.model ?? model,
     raw: payload,
