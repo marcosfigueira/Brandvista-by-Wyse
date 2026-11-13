@@ -218,7 +218,7 @@ ${sections}
 <section class="cartao sobre">
 <h2>Sobre este documento</h2>
 <p>Este documento reúne, sem cortes nem edição, tudo o que ChatGPT, Claude, Gemini e Perplexity responderam nesta rodada. Ele serve para conferir os números do relatório: cada indicador foi calculado a partir destas respostas.</p>
-<p>Cada pergunta foi enviada exatamente como está escrita, sem nenhuma instrução adicional, e repetida para cada IA. Cada capítulo corresponde a uma pergunta; dentro dele, há uma seção por IA, com as repetições em ordem. Cada resposta traz a versão do modelo, a data e a hora da consulta, se houve busca na web e as fontes que a IA citou.</p>
+<p>Cada pergunta foi enviada exatamente como está escrita, sem nenhuma instrução adicional, e repetida para cada IA. O documento é organizado por pergunta; em cada uma, há uma seção por IA, com as repetições em ordem. Cada resposta traz a versão do modelo, a data e a hora da consulta, se houve busca na web e as fontes que a IA citou.</p>
 <p>A linha "Análise" resume o que o BrandVista extraiu de cada resposta. O texto e os links das respostas são de responsabilidade de cada IA e podem conter erros.</p>
 </section>
 
