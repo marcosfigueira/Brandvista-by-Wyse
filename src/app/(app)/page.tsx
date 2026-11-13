@@ -1,30 +1,17 @@
 import Link from "next/link";
-import { Notice, Pill, firstParam } from "@/components/ui";
+import { Pill, firstParam } from "@/components/ui";
 import { computeBenchmark, type BenchmarkRow } from "@/lib/analysis/benchmark";
 import { BLOCK_WEIGHTS } from "@/lib/analysis/indicators";
 import { ANALYZER_VERSION, type Analysis } from "@/lib/analysis/types";
-import { getCurrentClient } from "@/lib/current-client";
 import { ENGINES } from "@/lib/engines";
-import { getSession } from "@/lib/session";
-import { saveSnapshots, type Snapshot } from "@/lib/snapshots";
-import { getSupabaseEnv } from "@/lib/supabase/env";
+import { getPainel, loadHistory, painelDay } from "@/lib/painel";
+import { TrendChart } from "@/components/trend-chart";
+import { PainelEmpty, PainelHeader, decimal, pct, score } from "./painel/shared";
 
 export const metadata = { title: "Painel · BrandVista" };
 
-type Run = { id: string; kind: string; status: string; created_at: string };
-
-const dateFormat = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "America/Sao_Paulo",
-});
-
 /** Abaixo deste número de respostas, o indicador é mostrado com aviso de amostra pequena. */
 const SMALL_SAMPLE = 20;
-
-const pct = (value: number) => `${Math.round(value * 100)}%`;
-const score = (value: number) => String(Math.round(value * 100));
-const decimal = (value: number) => value.toFixed(1).replace(".", ",");
 
 function Bar({ value, tone }: { value: number; tone: string }) {
   return (
@@ -122,82 +109,36 @@ export default async function PainelPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  if (getSupabaseEnv() === null) {
-    return (
-      <Notice tag="Configuração" title="Configuração pendente.">
-        <p>
-          A aplicação foi publicada, mas ainda não encontrou as variáveis do Supabase. Cadastre
-          NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel e publique de novo.
-        </p>
-      </Notice>
-    );
-  }
+  const painel = await getPainel(firstParam((await searchParams).rodada));
+  if (painel.state !== "ok") return <PainelEmpty painel={painel} />;
+  const { supabase, current, runs, selected, snapshots } = painel;
 
-  const session = await getSession();
-  const { current } = session ? await getCurrentClient() : { current: null };
-  if (!session || !current) {
-    return (
-      <Notice tag="Painel" title="Cadastre a primeira empresa.">
-        <p>
-          Ainda não há empresas. O cadastro fica em{" "}
-          <Link href="/controle" className="font-semibold text-ink underline">
-            Controle
-          </Link>
-          , junto com os limites de perguntas e de frequência.
-        </p>
-      </Notice>
-    );
-  }
-
-  const { supabase, role } = session;
-  const { data: runsData } = await supabase
-    .from("runs")
-    .select("id, kind, status, created_at")
-    .eq("client_id", current.id)
-    .eq("status", "concluida")
-    .order("created_at", { ascending: false })
-    .limit(12);
-  const runs = (runsData ?? []) as Run[];
-
-  // Por padrão, a rodada completa mais recente; sem nenhuma, a rodada mais recente.
-  const requested = firstParam((await searchParams).rodada);
-  const selected =
-    runs.find((run) => run.id === requested) ?? runs.find((run) => run.kind === "completa") ?? runs[0] ?? null;
-
-  let snapshots: Snapshot[] = [];
-  if (selected) {
-    const { data } = await supabase
-      .from("kpi_snapshots")
-      .select("engine, indicator, value, numerator, denominator")
-      .eq("run_id", selected.id);
-    snapshots = ((data ?? []) as Snapshot[]).map((item) => ({ ...item, value: Number(item.value) }));
-    // Rodada analisada antes de o cálculo existir: calcula agora, uma vez.
-    if (snapshots.length === 0 && role === "wyse") {
-      try {
-        snapshots = await saveSnapshots(supabase, selected.id);
-      } catch (error) {
-        console.error("Erro ao calcular os indicadores:", error instanceof Error ? error.message : error);
-      }
-    }
-  }
-
-  if (!selected || snapshots.length === 0) {
-    return (
-      <Notice tag="Painel" title={`${current.name}: ainda não há rodada analisada.`}>
-        <p>
-          O painel aparece depois da primeira rodada concluída e analisada. Em{" "}
-          <Link href="/perguntas" className="font-semibold text-ink underline">
-            Perguntas
-          </Link>
-          , use &quot;Rodar agora&quot;; a análise começa sozinha ao fim da coleta. Para uma rodada antiga, abra{" "}
-          <Link href="/respostas" className="font-semibold text-ink underline">
-            Respostas
-          </Link>{" "}
-          e use &quot;Analisar respostas&quot;.
-        </p>
-      </Notice>
-    );
-  }
+  // Rodadas completas, para a variação e o gráfico de evolução.
+  const history = await loadHistory(painel);
+  const at = history.findIndex((point) => point.run.id === selected.id);
+  const previous = at > 0 ? history[at - 1] : null;
+  /** Variação de um indicador contra a rodada completa anterior, em pontos. */
+  const change = (name: string) => {
+    const now = history[at]?.value(name) ?? null;
+    const before = previous?.value(name) ?? null;
+    if (now === null || before === null) return null;
+    const noise = Math.max(history[at].value(`${name}:spread`) ?? 0, previous?.value(`${name}:spread`) ?? 0);
+    const points = Math.round((now - before) * 100);
+    return {
+      points,
+      label: `${points > 0 ? "+" : points < 0 ? "−" : ""}${Math.abs(points)}`,
+      // Sem repetições não há como estimar a oscilação normal.
+      beyondNoise: noise > 0 ? Math.abs(now - before) > noise : null,
+    };
+  };
+  const changeNote = (name: string) => {
+    const delta = change(name);
+    if (!delta) return null;
+    if (delta.points === 0) return "Igual à rodada anterior";
+    const size = `${delta.label} ${Math.abs(delta.points) === 1 ? "ponto" : "pontos"} contra a rodada anterior`;
+    if (delta.beyondNoise === null) return size;
+    return delta.beyondNoise ? `${size}, acima da oscilação normal` : `${size}, dentro da oscilação normal`;
+  };
 
   // Benchmark: a marca e os concorrentes nas mesmas respostas da rodada.
   const [benchResponses, clientResult, competitorsResult] = await Promise.all([
@@ -259,32 +200,7 @@ export default async function PainelPage({
 
   return (
     <main className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div className="flex flex-col">
-          <h1 className="text-xl font-semibold">{current.name}</h1>
-          <span className="text-[13px] text-muted">
-            {selected.kind === "teste" ? "Rodada de teste" : "Rodada completa"} de{" "}
-            {dateFormat.format(new Date(selected.created_at))} · {analyzed} respostas analisadas
-          </span>
-        </div>
-        <nav aria-label="Escolher rodada" className="flex flex-wrap gap-2">
-          {runs.slice(0, 6).map((run) => (
-            <Link
-              key={run.id}
-              href={`/?rodada=${run.id}`}
-              aria-current={run.id === selected.id ? "true" : undefined}
-              className={`inline-flex min-h-11 items-center rounded-full border-[1.5px] px-4 text-[13px] ${
-                run.id === selected.id
-                  ? "border-ink bg-ink font-semibold text-paper"
-                  : "border-[#b3b3b3] bg-paper font-medium text-ink"
-              }`}
-            >
-              {dateFormat.format(new Date(run.created_at))}
-              {run.kind === "teste" ? " · teste" : ""}
-            </Link>
-          ))}
-        </nav>
-      </div>
+      <PainelHeader clientName={current.name} runs={runs} selected={selected} section="/" analyzed={analyzed} />
 
       {selected.kind === "teste" ? (
         <p className="rounded-[20px] bg-sun px-5 py-4 text-sm font-medium">
@@ -313,6 +229,9 @@ export default async function PainelPage({
             numberClass="text-[72px]"
             captionClass="text-[#cfd1d3]"
           />
+          {changeNote("sei") ? (
+            <p className="text-center text-[13px] font-medium text-[#cfd1d3]">{changeNote("sei")}</p>
+          ) : null}
           <p className="text-[15px] leading-relaxed text-[#e3e5e8]">
             Brand Visibility mostra o quanto a marca aparece nas respostas das IAs. Brand Legibility vai além:
             considera também se a marca é compreendida corretamente.
@@ -365,6 +284,9 @@ export default async function PainelPage({
               <span className="text-center text-[15px] font-medium">
                 {visibility ? "A marca aparece?" : "Sem perguntas que não citam a marca nesta rodada."}
               </span>
+              {changeNote("brand_visibility") ? (
+                <span className="text-center text-[13px] font-medium">{changeNote("brand_visibility")}</span>
+              ) : null}
             </section>
             <section
               aria-label="Brand Understanding"
@@ -385,6 +307,9 @@ export default async function PainelPage({
                   ? "A marca é entendida?"
                   : "Sem perguntas de reconhecimento, associação ou sobre a marca nesta rodada."}
               </span>
+              {changeNote("brand_understanding") ? (
+                <span className="text-center text-[13px] font-medium">{changeNote("brand_understanding")}</span>
+              ) : null}
             </section>
           </div>
 
@@ -491,6 +416,46 @@ export default async function PainelPage({
           </div>
         </div>
       </div>
+
+      {history.length > 0 ? (
+        <section aria-label="Evolução" className="flex flex-col gap-4 rounded-card bg-paper p-7">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-xl font-semibold">Evolução do Brand Legibility</h2>
+            <Link href={`/painel/evolucao?rodada=${selected.id}`} className="text-[13px] font-semibold underline">
+              Ver a evolução de todos os indicadores
+            </Link>
+          </div>
+          <TrendChart
+            title="Semantic Equity Index, de 0 a 100, por rodada completa"
+            note={
+              history.length < 3
+                ? "Com menos de três rodadas completas ainda não dá para falar em tendência."
+                : "A faixa clara é a oscilação normal entre repetições: mudanças dentro dela podem não significar nada."
+            }
+            labels={history.map((point) => painelDay.format(new Date(point.run.created_at)))}
+            format="pontos"
+            series={[
+              {
+                name: "Brand Legibility",
+                color: "#ff6200",
+                values: history.map((point) => {
+                  const value = point.value("sei");
+                  return value === null ? null : value * 100;
+                }),
+                spreads: history.map((point) => {
+                  const value = point.value("sei:spread");
+                  return value === null ? null : value * 100;
+                }),
+              },
+            ]}
+            changed={history.map((point, index) => {
+              const now = point.value("library_fingerprint");
+              const before = index > 0 ? history[index - 1].value("library_fingerprint") : null;
+              return now !== null && before !== null && now !== before;
+            })}
+          />
+        </section>
+      ) : null}
 
       <section aria-label="Benchmark" className="flex flex-col gap-4 rounded-card bg-paper p-7">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
