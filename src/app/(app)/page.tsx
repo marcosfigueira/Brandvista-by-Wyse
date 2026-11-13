@@ -314,10 +314,14 @@ export default async function PainelPage({
             captionClass="text-[#cfd1d3]"
           />
           <p className="text-[15px] leading-relaxed text-[#e3e5e8]">
-            {sei
-              ? "O índice combina os dois blocos: se a marca aparece e se é entendida."
-              : "O índice precisa dos dois blocos. Falta base em um deles nesta rodada; veja os cartões ao lado."}
+            Brand Visibility mostra o quanto a marca aparece nas respostas das IAs. Brand Legibility vai além:
+            considera também se a marca é compreendida corretamente.
           </p>
+          {sei ? null : (
+            <p className="text-[13px] leading-relaxed text-[#cfd1d3]">
+              O índice precisa dos dois blocos, e um deles está sem base nesta rodada.
+            </p>
+          )}
           <div className="mt-auto flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3 text-[15px]">
               <span className="inline-flex items-center gap-2.5">
