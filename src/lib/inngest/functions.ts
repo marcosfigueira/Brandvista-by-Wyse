@@ -1,5 +1,6 @@
 import { engineById } from "@/lib/engines";
 import { errorRow, okRow } from "@/lib/response-rows";
+import { saveSnapshots } from "@/lib/snapshots";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildAnalysis, hasIncorrectClaim } from "@/lib/analysis/build";
 import { judgeResponse } from "@/lib/analysis/judge";
@@ -216,6 +217,8 @@ export const analyzeRun = inngest.createFunction(
     }
 
     await step.run("encerrar-analise", async () => {
+      // Os indicadores são calculados uma vez, ao fim da análise de cada rodada.
+      await saveSnapshots(createAdminClient(), runId);
       const { error } = await createAdminClient()
         .from("runs")
         .update({ status: "concluida", finished_at: new Date().toISOString() })
