@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Notice, Pill, firstParam } from "@/components/ui";
+import { computeBenchmark, type BenchmarkRow } from "@/lib/analysis/benchmark";
 import { BLOCK_WEIGHTS } from "@/lib/analysis/indicators";
+import { ANALYZER_VERSION, type Analysis } from "@/lib/analysis/types";
 import { getCurrentClient } from "@/lib/current-client";
 import { ENGINES } from "@/lib/engines";
 import { getSession } from "@/lib/session";
@@ -138,6 +140,37 @@ export default async function PainelPage({
       </Notice>
     );
   }
+
+  // Benchmark: a marca e os concorrentes nas mesmas respostas da rodada.
+  const [benchResponses, clientResult, competitorsResult] = await Promise.all([
+    supabase
+      .from("responses")
+      .select("prompts(text), analyses(analyzer_version, result)")
+      .eq("run_id", selected.id)
+      .eq("status", "ok"),
+    supabase.from("clients").select("name, name_variants").eq("id", current.id).maybeSingle(),
+    supabase.from("competitors").select("name, name_variants").eq("client_id", current.id),
+  ]);
+  const benchRows: BenchmarkRow[] = [];
+  for (const row of (benchResponses.data ?? []) as unknown as {
+    prompts: { text: string } | null;
+    analyses: { analyzer_version: string; result: Analysis }[] | null;
+  }[]) {
+    const analysis = (row.analyses ?? []).find((item) => item.analyzer_version === ANALYZER_VERSION);
+    if (analysis && row.prompts) benchRows.push({ question: row.prompts.text, analysis: analysis.result });
+  }
+  const benchmark = computeBenchmark(
+    benchRows,
+    {
+      name: clientResult.data?.name ?? current.name,
+      variants: (clientResult.data?.name_variants as string[] | null) ?? [],
+    },
+    ((competitorsResult.data ?? []) as { name: string; name_variants: string[] | null }[]).map((item) => ({
+      name: item.name,
+      variants: item.name_variants ?? [],
+    })),
+  );
+  const brandRank = benchmark.entries.findIndex((entry) => entry.isBrand) + 1;
 
   const of = (engine: string | null, name: string) =>
     snapshots.find((item) => item.engine === engine && item.indicator === name) ?? null;
@@ -404,6 +437,89 @@ export default async function PainelPage({
           </div>
         </div>
       </div>
+
+      <section aria-label="Benchmark" className="flex flex-col gap-4 rounded-card bg-paper p-7">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-xl font-semibold">Benchmark: a marca em relação ao mercado</h2>
+          <Link href="/marca" className="text-[13px] font-semibold underline">
+            Cadastrar concorrentes em Marca
+          </Link>
+        </div>
+        {benchmark.openResponses === 0 ? (
+          <p className="text-[15px] text-muted">
+            Sem base nesta rodada: o benchmark usa as respostas a perguntas que não citam a marca.
+          </p>
+        ) : (
+          <>
+            <p className="text-[15px] leading-relaxed">
+              {benchmark.entries.length > 1
+                ? `${current.name} está em ${brandRank}º lugar em presença entre ${benchmark.entries.length} marcas comparadas, em ${benchmark.openResponses} respostas a perguntas que não citam a marca.`
+                : "Nenhum concorrente cadastrado. Cadastre os concorrentes em Marca para compará-los; as marcas que as IAs mais citaram estão listadas abaixo."}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th scope="col" className="w-10 py-2.5 pr-3 font-semibold">Nº</th>
+                    <th scope="col" className="px-3 py-2.5 font-semibold">Marca</th>
+                    <th scope="col" className="w-[38%] px-3 py-2.5 font-semibold">Presença nas respostas</th>
+                    <th scope="col" className="px-3 py-2.5 font-semibold">Citada em</th>
+                    <th scope="col" className="py-2.5 pl-3 font-semibold">Posição média</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {benchmark.entries.map((entry, index) => (
+                    <tr key={entry.name} className={`border-t border-[#e3e5e8] ${entry.isBrand ? "font-semibold" : ""}`}>
+                      <td className="py-3 pr-3">{index + 1}</td>
+                      <th scope="row" className="px-3 py-3 text-left font-[inherit]">
+                        {entry.name}
+                        {entry.isBrand ? (
+                          <span className="ml-2 inline-flex align-middle text-xs">
+                            <Pill tone="brand">Sua marca</Pill>
+                          </span>
+                        ) : null}
+                      </th>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <Bar value={entry.presence ?? 0} tone={entry.isBrand ? "bg-brand" : "bg-ink"} />
+                          </div>
+                          <span className="w-11 text-right">{entry.presence === null ? "–" : pct(entry.presence)}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        {entry.cited} de {entry.total}
+                      </td>
+                      <td className="py-3 pl-3">{entry.meanPosition === null ? "–" : `${decimal(entry.meanPosition)}ª`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {benchmark.others.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-[15px] font-semibold">Outras marcas citadas pelas IAs, ainda não cadastradas</h3>
+                <ul className="flex flex-wrap gap-2 text-[13px]">
+                  {benchmark.others.map((other) => (
+                    <li key={other.name} className="inline-flex min-h-[30px] items-center rounded-full bg-[#e3e5e8] px-3 font-medium">
+                      {other.name} · {other.cited}
+                    </li>
+                  ))}
+                </ul>
+                <span className="text-xs text-muted">
+                  O número é em quantas respostas a marca apareceu. Se alguma for concorrente direta, cadastre em Marca
+                  para ela entrar na comparação.
+                </span>
+              </div>
+            ) : null}
+            <p className="text-[13px] leading-relaxed text-muted">
+              Presença é a parte das respostas em que a marca aparece; posição média é a ordem em que ela é citada
+              quando aparece. Perguntas que citam um concorrente ficam fora da conta dele, pelo mesmo motivo das que
+              citam a sua marca.{benchmark.openResponses < SMALL_SAMPLE ? " Amostra pequena: leia com cautela." : ""}
+            </p>
+          </>
+        )}
+      </section>
 
       {engines.length > 0 ? (
         <section className="flex flex-col gap-4 rounded-card bg-paper p-7">
