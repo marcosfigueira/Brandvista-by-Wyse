@@ -7,6 +7,10 @@ export type AnalyzedRow = {
   /** Tipo da pergunta: categoria, comparativa, sobre_a_marca, reconhecimento, associacao. */
   kind: string;
   analysis: Analysis;
+  /** Número da repetição (1, 2, 3…), para estimar a oscilação entre repetições. */
+  repetition?: number;
+  /** Identificador da pergunta, para saber se a biblioteca mudou entre rodadas. */
+  promptId?: string;
 };
 
 export type AttributeWeight = { name: string; weight: number };
@@ -174,4 +178,56 @@ export function computeByEngine(
       indicators: computeIndicators(rows.filter((row) => row.engine === engine), attributes),
     })),
   ];
+}
+
+/** Versão do cálculo. Subir este número faz o Painel recalcular rodadas antigas. */
+export const CALC_VERSION = 2;
+
+/** Indicadores para os quais se estima a oscilação entre repetições. */
+const SPREAD_OF = [
+  "sei",
+  "brand_visibility",
+  "brand_understanding",
+  "citation_presence",
+  "erasure_rate",
+  "mean_position",
+] as const;
+
+/**
+ * Oscilação normal de cada indicador: metade da diferença entre a maior e a
+ * menor repetição da mesma rodada. Cada repetição faz as mesmas perguntas, então
+ * a diferença entre elas é o quanto o número varia sem que nada tenha mudado.
+ * Sem pelo menos duas repetições, não há estimativa.
+ */
+export function computeSpread(rows: AnalyzedRow[], attributes: AttributeWeight[]): Indicator[] {
+  const repetitions = [...new Set(rows.map((row) => row.repetition).filter((value): value is number => value != null))];
+  if (repetitions.length < 2) return [];
+  const perRepetition = repetitions.map((repetition) =>
+    computeIndicators(rows.filter((row) => row.repetition === repetition), attributes),
+  );
+  const out: Indicator[] = [];
+  for (const name of SPREAD_OF) {
+    const values = perRepetition
+      .map((list) => list.find((item) => item.indicator === name)?.value)
+      .filter((value): value is number => value != null);
+    if (values.length < 2) continue;
+    out.push({
+      indicator: `${name}:spread`,
+      value: (Math.max(...values) - Math.min(...values)) / 2,
+      numerator: null,
+      denominator: values.length,
+    });
+  }
+  return out;
+}
+
+/** Número que muda quando o conjunto de perguntas da rodada muda. */
+export function libraryFingerprint(rows: AnalyzedRow[]): number {
+  const ids = [...new Set(rows.map((row) => row.promptId).filter((id): id is string => Boolean(id)))].sort();
+  let hash = 2166136261;
+  for (const char of ids.join("|")) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash;
 }

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { computeByEngine, computeIndicators, type AnalyzedRow } from "./indicators";
+import {
+  computeByEngine,
+  computeIndicators,
+  computeSpread,
+  libraryFingerprint,
+  type AnalyzedRow,
+} from "./indicators";
 import type { Analysis } from "./types";
 
 const base: Analysis = {
@@ -121,4 +127,23 @@ test("sem respostas não há indicadores de bloco; por motor separa os dados", (
   assert.deepEqual(groups.map((group) => group.engine), [null, "chatgpt", "gemini"]);
   assert.equal(get(groups[1].indicators, "citation_presence")?.value, 1);
   assert.equal(get(groups[2].indicators, "citation_presence")?.value, 0);
+});
+
+test("oscilação é metade da diferença entre repetições e exige pelo menos duas", () => {
+  const rep = (repetition: number, cited: boolean): AnalyzedRow => ({
+    ...row("categoria", cited ? citedAt(1) : {}),
+    repetition,
+    promptId: "p1",
+  });
+  // Repetição 1: presença 100%. Repetição 2: presença 0%.
+  const spread = computeSpread([rep(1, true), rep(2, false)], attributes);
+  assert.equal(spread.find((item) => item.indicator === "citation_presence:spread")?.value, 0.5);
+  assert.deepEqual(computeSpread([rep(1, true)], attributes), []);
+});
+
+test("a impressão digital da biblioteca muda só quando as perguntas mudam", () => {
+  const withPrompt = (promptId: string): AnalyzedRow => ({ ...row("categoria", {}), promptId });
+  const a = libraryFingerprint([withPrompt("p1"), withPrompt("p2"), withPrompt("p1")]);
+  assert.equal(a, libraryFingerprint([withPrompt("p2"), withPrompt("p1")]));
+  assert.notEqual(a, libraryFingerprint([withPrompt("p1"), withPrompt("p3")]));
 });
