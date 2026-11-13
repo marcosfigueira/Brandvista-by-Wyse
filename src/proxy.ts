@@ -4,7 +4,8 @@ import { getSupabaseEnv } from "@/lib/supabase/env";
 
 /**
  * Roda antes de cada página: renova a sessão do Supabase e manda para
- * /login quem não está autenticado.
+ * /login quem não está autenticado. O endereço /api/inngest fica de fora:
+ * quem chama é o Inngest, que se identifica pela chave de assinatura.
  */
 export async function proxy(request: NextRequest) {
   const env = getSupabaseEnv();
@@ -52,5 +53,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!api/inngest|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };
