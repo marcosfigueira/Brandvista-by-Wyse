@@ -5,7 +5,7 @@ import { getCurrentClient } from "@/lib/current-client";
 import { ENGINES } from "@/lib/engines";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf, type Prompt } from "@/lib/types";
-import { createPrompt, startTestRun, togglePrompt } from "./actions";
+import { createPrompt, startFullRun, startTestRun, togglePrompt } from "./actions";
 import { PromptFields } from "./prompt-fields";
 
 export const metadata = { title: "Perguntas · BrandVista" };
@@ -44,7 +44,7 @@ export default async function PerguntasPage({
       .select("id, prompt_key, version, text, kind, persona, journey_stage, search_enabled, active")
       .eq("client_id", current.id)
       .order("created_at"),
-    supabase.from("client_limits").select("max_prompts").eq("client_id", current.id).maybeSingle(),
+    supabase.from("client_limits").select("*").eq("client_id", current.id).maybeSingle(),
   ]);
 
   // Cada pergunta pode ter várias versões; a lista mostra só a mais recente.
@@ -58,6 +58,8 @@ export default async function PerguntasPage({
   const max = limitResult.data?.max_prompts ?? 50;
   const visible = tipo ? all.filter((prompt) => prompt.kind === tipo) : all;
   const atLimit = activeCount >= max;
+  const repetitions = (limitResult.data as { repetitions?: number } | null)?.repetitions ?? 3;
+  const fullCalls = activeCount * ENGINES.length * repetitions;
 
   const filters = [
     { href: "/perguntas", label: `Todas: ${all.length}`, selected: !tipo },
@@ -222,6 +224,27 @@ export default async function PerguntasPage({
                 alguns minutos; não feche a página.
               </span>
             </div>
+          </form>
+        ) : null}
+        {activeCount > 0 ? (
+          <form action={startFullRun} className="flex flex-col gap-3 rounded-[20px] bg-ink px-5 py-4 text-paper">
+            <h3 className="text-[17px] font-semibold">Rodada completa</h3>
+            <p className="text-[13px] leading-relaxed text-[#e3e5e8]">
+              {activeCount} {activeCount === 1 ? "pergunta ativa" : "perguntas ativas"} × {ENGINES.length} motores ×{" "}
+              {repetitions} {repetitions === 1 ? "repetição" : "repetições"} = {fullCalls} consultas pagas aos
+              motores. A coleta roda em segundo plano e pode levar de minutos a algumas horas; você pode fechar a
+              página e acompanhar em Respostas. As repetições são definidas em Controle.
+            </p>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
+              <input type="checkbox" name="confirm" required className="size-5 cursor-pointer accent-[#fd4b23]" />
+              Confirmo rodar {fullCalls} consultas para {current.name}.
+            </label>
+            <SubmitButton
+              pendingLabel="Enviando para a fila…"
+              className="inline-flex min-h-12 cursor-pointer items-center self-start rounded-full bg-brand px-6 text-sm font-semibold text-ink"
+            >
+              Rodar agora
+            </SubmitButton>
           </form>
         ) : null}
         <p className="text-[13px] leading-relaxed text-muted">

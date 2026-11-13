@@ -6,7 +6,9 @@ import { getCurrentClient } from "@/lib/current-client";
 import { dbMessage, fail, field, optional } from "@/lib/forms";
 import { requireWyse } from "@/lib/session";
 import { ENGINES, type Engine } from "@/lib/engines";
+import { RUN_REQUESTED, inngest } from "@/lib/inngest/client";
 import { errorRow, okRow, type ResponseRow } from "@/lib/response-rows";
+import { serviceKey } from "@/lib/supabase/admin";
 import { PROMPT_KINDS } from "@/lib/types";
 
 const PATH = "/perguntas";
@@ -187,6 +189,86 @@ export async function startTestRun(formData: FormData) {
 
   if (insertError) {
     fail(PATH, dbMessage(insertError, "As respostas foram coletadas, mas não foi possível gravá-las."));
+  }
+
+  revalidatePath("/respostas");
+  redirect(`/respostas?rodada=${run.id}`);
+}
+
+/**
+ * Rodada completa: todas as perguntas ativas, nos quatro motores, com as
+ * repetições definidas em Controle. A coleta roda em segundo plano, na fila;
+ * esta ação só cria a rodada e avisa a fila.
+ */
+export async function startFullRun(formData: FormData) {
+  const { supabase } = await requireWyse();
+  const { current } = await getCurrentClient();
+  if (!current) fail(PATH, "Selecione ou cadastre uma empresa primeiro.");
+  if (formData.get("confirm") !== "on") {
+    fail(PATH, "Marque a confirmação antes de iniciar a rodada completa.");
+  }
+  if (!serviceKey()) {
+    fail(PATH, "A variável SUPABASE_SERVICE_ROLE_KEY não está configurada na Vercel.");
+  }
+  if (process.env.NODE_ENV === "production" && !process.env.INNGEST_EVENT_KEY) {
+    fail(PATH, "A variável INNGEST_EVENT_KEY não está configurada na Vercel para este ambiente.");
+  }
+
+  const [promptsResult, limitsResult, runningResult] = await Promise.all([
+    supabase
+      .from("prompts")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", current.id)
+      .eq("active", true),
+    supabase.from("client_limits").select("*").eq("client_id", current.id).maybeSingle(),
+    supabase
+      .from("runs")
+      .select("id")
+      .eq("client_id", current.id)
+      .eq("kind", "completa")
+      .in("status", ["pendente", "coletando", "analisando"])
+      .limit(1),
+  ]);
+
+  const promptCount = promptsResult.count ?? 0;
+  if (promptCount === 0) fail(PATH, "Não há perguntas ativas para rodar.");
+  const limits = limitsResult.data as { active?: boolean; repetitions?: number } | null;
+  if (limits?.active === false) fail(PATH, "O tracking deste cliente está desativado em Controle.");
+  if ((runningResult.data ?? []).length > 0) {
+    fail(PATH, "Já existe uma rodada completa em andamento para este cliente. Acompanhe em Respostas.");
+  }
+
+  const repetitions = limits?.repetitions ?? 3;
+  const { data: run, error: runError } = await supabase
+    .from("runs")
+    .insert({
+      client_id: current.id,
+      kind: "completa",
+      engines: ENGINES.map((engine) => engine.id),
+      repetitions,
+      status: "pendente",
+      expected_responses: promptCount * ENGINES.length * repetitions,
+    })
+    .select("id")
+    .single();
+
+  if (runError || !run) {
+    console.error("Erro ao criar a rodada completa:", runError?.code, runError?.message);
+    fail(
+      PATH,
+      "Não foi possível criar a rodada. Confira se o arquivo 0006_rodada_completa.sql foi executado no Supabase.",
+    );
+  }
+
+  try {
+    await inngest.send({ name: RUN_REQUESTED, data: { runId: run.id } });
+  } catch (error) {
+    console.error("Erro ao avisar a fila:", error instanceof Error ? error.message : error);
+    await supabase
+      .from("runs")
+      .update({ status: "falhou", finished_at: new Date().toISOString() })
+      .eq("id", run.id);
+    fail(PATH, "A rodada foi criada, mas a fila (Inngest) não aceitou o pedido. Confira as variáveis INNGEST_* na Vercel.");
   }
 
   revalidatePath("/respostas");

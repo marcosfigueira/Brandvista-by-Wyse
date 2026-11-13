@@ -5,6 +5,7 @@ import { ENGINES, engineLabel } from "@/lib/engines";
 import type { EngineSource } from "@/lib/engines/types";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf } from "@/lib/types";
+import { AutoRefresh } from "./auto-refresh";
 
 export const metadata = { title: "Respostas · BrandVista" };
 
@@ -14,6 +15,7 @@ type Run = {
   status: string;
   engines: string[];
   created_at: string;
+  expected_responses?: number | null;
 };
 
 type ResponseRow = {
@@ -79,7 +81,7 @@ export default async function RespostasPage({
 
   const { data: runsData } = await supabase
     .from("runs")
-    .select("id, kind, status, engines, created_at")
+    .select("*")
     .eq("client_id", current.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -119,6 +121,8 @@ export default async function RespostasPage({
       a.repetition - b.repetition,
   );
   const failed = responses.filter((response) => response.status === "erro").length;
+  const expected = selected.kind === "completa" ? (selected.expected_responses ?? 0) : 0;
+  const inProgress = selected.status === "pendente" || selected.status === "coletando";
 
   return (
     <main className="flex flex-col gap-4">
@@ -166,15 +170,26 @@ export default async function RespostasPage({
             <div className="flex flex-col items-end gap-0.5">
               <span className="text-[40px] leading-none font-semibold tracking-tight">{responses.length}</span>
               <span className="text-[13px] font-medium">
-                {responses.length === 1 ? "resposta" : "respostas"}
+                {expected ? `de ${expected} respostas` : responses.length === 1 ? "resposta" : "respostas"}
                 {failed > 0 ? `, ${failed} com erro` : ""}
               </span>
+              {selected.kind === "completa" ? (
+                <span className="text-[13px] font-semibold">{RUN_STATUS[selected.status] ?? selected.status}</span>
+              ) : null}
             </div>
           </section>
 
+          {inProgress ? (
+            <section role="status" className="rounded-card bg-paper p-7 text-[15px] leading-relaxed">
+              <AutoRefresh seconds={20} />
+              A coleta está rodando em segundo plano. Esta página se atualiza sozinha a cada 20 segundos; você
+              pode fechá-la e voltar depois.
+            </section>
+          ) : null}
+
           {responses.length === 0 ? (
             <section className="rounded-card bg-paper p-7 text-[15px] text-muted">
-              Esta rodada não tem respostas gravadas.
+              {inProgress ? "Ainda não há respostas gravadas nesta rodada." : "Esta rodada não tem respostas gravadas."}
             </section>
           ) : null}
 
