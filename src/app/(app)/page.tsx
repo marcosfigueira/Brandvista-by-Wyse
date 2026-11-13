@@ -34,6 +34,64 @@ function Bar({ value, tone }: { value: number; tone: string }) {
   );
 }
 
+/**
+ * Anel de pontuação de 0 a 100, com o número no centro. Sem valor, mostra o
+ * anel vazio e um traço. As cores vêm de fora para o anel servir em cartões
+ * de fundos diferentes.
+ */
+function Ring({
+  value,
+  label,
+  size,
+  track,
+  stroke,
+  numberClass,
+  captionClass,
+}: {
+  value: number | null;
+  label: string;
+  size: number;
+  track: string;
+  stroke: string;
+  numberClass: string;
+  captionClass: string;
+}) {
+  const length = 2 * Math.PI * 98;
+  const filled = value === null ? 0 : Math.min(Math.max(value, 0), 1);
+  return (
+    <div className="relative self-center" style={{ width: size, height: size }}>
+      <svg
+        viewBox="0 0 240 240"
+        width={size}
+        height={size}
+        role="img"
+        aria-label={value === null ? `${label} sem base nesta rodada` : `${label}: ${score(value)} em uma escala de 0 a 100`}
+      >
+        <circle cx="120" cy="120" r="98" fill="none" stroke={track} strokeWidth="20" />
+        {filled > 0 ? (
+          <circle
+            cx="120"
+            cy="120"
+            r="98"
+            fill="none"
+            stroke={stroke}
+            strokeWidth="20"
+            strokeLinecap="round"
+            strokeDasharray={`${(length * filled).toFixed(1)} ${(length * (1 - filled)).toFixed(1)}`}
+            transform="rotate(-90 120 120)"
+          />
+        ) : null}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={`leading-none font-semibold tracking-tight ${numberClass}`}>
+          {value === null ? "–" : score(value)}
+        </span>
+        <span className={`mt-1.5 text-[13px] ${captionClass}`}>{value === null ? "sem base" : "de 100"}</span>
+      </div>
+    </div>
+  );
+}
+
 function Metric({
   name,
   display,
@@ -193,7 +251,6 @@ export default async function PainelPage({
   const noBase = "Sem base nesta rodada";
   const sample = (count: number | null | undefined, unit: string) =>
     `${count ?? 0} ${unit}${(count ?? 0) < SMALL_SAMPLE ? ". Amostra pequena: leia com cautela" : ""}`;
-  const ring = 2 * Math.PI * 98;
   const engines = ENGINES.filter((engine) => snapshots.some((item) => item.engine === engine.id));
   const cell = (engine: string, name: string, format: (value: number) => string) => {
     const item = of(engine, name);
@@ -245,36 +302,17 @@ export default async function PainelPage({
             <span className="inline-flex min-h-[30px] items-center rounded-full bg-brand px-3.5 text-xs font-semibold tracking-wider text-ink uppercase">
               Brand Legibility
             </span>
-            <span className="text-[13px] text-[#cfd1d3]">Índice SEI</span>
+            <span className="text-[13px] text-[#cfd1d3]">Semantic Equity Index</span>
           </div>
-          <div className="relative size-[240px] self-center">
-            <svg
-              viewBox="0 0 240 240"
-              width="240"
-              height="240"
-              role="img"
-              aria-label={sei ? `SEI de ${score(sei.value)} em uma escala de 0 a 100` : "SEI sem base nesta rodada"}
-            >
-              <circle cx="120" cy="120" r="98" fill="none" stroke="#262626" strokeWidth="20" />
-              {sei ? (
-                <circle
-                  cx="120"
-                  cy="120"
-                  r="98"
-                  fill="none"
-                  stroke="#ff6200"
-                  strokeWidth="20"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(ring * sei.value).toFixed(1)} ${(ring * (1 - sei.value)).toFixed(1)}`}
-                  transform="rotate(-90 120 120)"
-                />
-              ) : null}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[72px] leading-none font-semibold tracking-tight">{sei ? score(sei.value) : "–"}</span>
-              <span className="mt-1.5 text-[13px] text-[#cfd1d3]">{sei ? "de 100" : "sem base"}</span>
-            </div>
-          </div>
+          <Ring
+            value={sei?.value ?? null}
+            label="SEI"
+            size={240}
+            track="#262626"
+            stroke="#ff6200"
+            numberClass="text-[72px]"
+            captionClass="text-[#cfd1d3]"
+          />
           <p className="text-[15px] leading-relaxed text-[#e3e5e8]">
             {sei
               ? "O índice combina os dois blocos: se a marca aparece e se é entendida."
@@ -308,27 +346,39 @@ export default async function PainelPage({
           <div className="flex flex-wrap gap-4">
             <section
               aria-label="Brand Visibility"
-              className="flex min-w-0 flex-[1_1_280px] flex-col gap-2 rounded-card bg-brand p-7 text-ink"
+              className="flex min-w-0 flex-[1_1_280px] flex-col gap-4 rounded-card bg-brand p-7 text-ink"
             >
               <span className="text-[15px] font-semibold">Brand Visibility</span>
-              <span className="mt-2 text-[96px] leading-none font-semibold tracking-tighter">
-                {visibility ? score(visibility.value) : "–"}
-              </span>
-              <span className="text-[15px] font-medium">
-                {visibility ? "de 100. A marca aparece?" : "Sem perguntas que não citam a marca nesta rodada."}
+              <Ring
+                value={visibility?.value ?? null}
+                label="Brand Visibility"
+                size={200}
+                track="rgba(0, 0, 0, 0.18)"
+                stroke="#000000"
+                numberClass="text-[64px]"
+                captionClass="text-ink"
+              />
+              <span className="text-center text-[15px] font-medium">
+                {visibility ? "A marca aparece?" : "Sem perguntas que não citam a marca nesta rodada."}
               </span>
             </section>
             <section
               aria-label="Brand Understanding"
-              className="flex min-w-0 flex-[1_1_280px] flex-col gap-2 rounded-card bg-blue p-7 text-paper"
+              className="flex min-w-0 flex-[1_1_280px] flex-col gap-4 rounded-card bg-blue p-7 text-paper"
             >
               <span className="text-[15px] font-semibold">Brand Understanding</span>
-              <span className="mt-2 text-[96px] leading-none font-semibold tracking-tighter">
-                {understanding ? score(understanding.value) : "–"}
-              </span>
-              <span className="text-[15px] font-medium">
+              <Ring
+                value={understanding?.value ?? null}
+                label="Brand Understanding"
+                size={200}
+                track="rgba(255, 255, 255, 0.28)"
+                stroke="#ffffff"
+                numberClass="text-[64px]"
+                captionClass="text-paper"
+              />
+              <span className="text-center text-[15px] font-medium">
                 {understanding
-                  ? "de 100. A marca é entendida?"
+                  ? "A marca é entendida?"
                   : "Sem perguntas de reconhecimento, associação ou sobre a marca nesta rodada."}
               </span>
             </section>
@@ -346,7 +396,7 @@ export default async function PainelPage({
                 tone="bg-brand"
                 note={
                   presence
-                    ? `${presence.numerator} de ${sample(presence.denominator, "respostas a perguntas que não citam a marca")}`
+                    ? `${presence.numerator} de ${sample(presence.denominator, "respostas")}`
                     : noBase
                 }
               />
@@ -357,7 +407,7 @@ export default async function PainelPage({
                 tone="bg-ink"
                 note={
                   erasure
-                    ? `${erasure.numerator} de ${sample(erasure.denominator, "respostas que citam outras marcas")}. Quanto menor, melhor`
+                    ? `${erasure.numerator} de ${erasure.denominator} respostas citam outras marcas, mas não a sua. Quanto menor, melhor${(erasure.denominator ?? 0) < SMALL_SAMPLE ? ". Amostra pequena: leia com cautela" : ""}`
                     : noBase
                 }
               />
@@ -447,13 +497,13 @@ export default async function PainelPage({
         </div>
         {benchmark.openResponses === 0 ? (
           <p className="text-[15px] text-muted">
-            Sem base nesta rodada: o benchmark usa as respostas a perguntas que não citam a marca.
+            Sem base nesta rodada: nenhuma pergunta aberta sobre o mercado foi respondida.
           </p>
         ) : (
           <>
             <p className="text-[15px] leading-relaxed">
               {benchmark.entries.length > 1
-                ? `${current.name} está em ${brandRank}º lugar em presença entre ${benchmark.entries.length} marcas comparadas, em ${benchmark.openResponses} respostas a perguntas que não citam a marca.`
+                ? `${current.name} está em ${brandRank}º lugar em presença entre ${benchmark.entries.length} marcas comparadas, em ${benchmark.openResponses} respostas.`
                 : "Nenhum concorrente cadastrado. Cadastre os concorrentes em Marca para compará-los; as marcas que as IAs mais citaram estão listadas abaixo."}
             </p>
             <div className="overflow-x-auto">
@@ -513,9 +563,8 @@ export default async function PainelPage({
               </div>
             ) : null}
             <p className="text-[13px] leading-relaxed text-muted">
-              Presença é a parte das respostas em que a marca aparece; posição média é a ordem em que ela é citada
-              quando aparece. Perguntas que citam um concorrente ficam fora da conta dele, pelo mesmo motivo das que
-              citam a sua marca.{benchmark.openResponses < SMALL_SAMPLE ? " Amostra pequena: leia com cautela." : ""}
+              Presença é em quantas respostas a marca aparece. Posição média é a ordem em que ela é citada quando
+              aparece: 1ª é a primeira da lista.{benchmark.openResponses < SMALL_SAMPLE ? " Amostra pequena: leia com cautela." : ""}
             </p>
           </>
         )}
@@ -565,12 +614,6 @@ export default async function PainelPage({
           </p>
         </section>
       ) : null}
-
-      <p className="flex flex-wrap items-center gap-2 px-1 text-[13px] leading-relaxed text-muted">
-        <Pill tone="line">Como ler</Pill>
-        As fórmulas e os pesos são uma proposta da Wyse, ainda sem validação empírica. Os indicadores são calculados
-        uma vez, ao fim da análise de cada rodada.
-      </p>
     </main>
   );
 }
