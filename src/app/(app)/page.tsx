@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { Pill, firstParam } from "@/components/ui";
+import { Flash, Pill, firstParam } from "@/components/ui";
 import { computeBenchmark, type BenchmarkRow } from "@/lib/analysis/benchmark";
 import { BLOCK_WEIGHTS } from "@/lib/analysis/indicators";
 import { ANALYZER_VERSION, type Analysis } from "@/lib/analysis/types";
 import { ENGINES } from "@/lib/engines";
 import { getPainel, loadHistory, painelDay } from "@/lib/painel";
 import { TrendChart } from "@/components/trend-chart";
+import { SubmitButton } from "@/components/submit-button";
+import type { ReportContent } from "@/lib/report/types";
+import { AutoRefresh } from "./respostas/auto-refresh";
+import { requestReport } from "./painel/actions";
 import { PainelEmpty, PainelHeader, decimal, pct, score } from "./painel/shared";
 
 export const metadata = { title: "Painel · BrandVista" };
@@ -109,9 +113,24 @@ export default async function PainelPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const painel = await getPainel(firstParam((await searchParams).rodada));
+  const query = await searchParams;
+  const painel = await getPainel(firstParam(query.rodada));
   if (painel.state !== "ok") return <PainelEmpty painel={painel} />;
-  const { supabase, current, runs, selected, snapshots } = painel;
+  const { supabase, role, current, runs, selected, snapshots } = painel;
+
+  // Relatório da rodada. Antes da migração 0008 a consulta falha e nada é mostrado.
+  const reportResult = await supabase
+    .from("reports")
+    .select("status, content, error_message, updated_at")
+    .eq("run_id", selected.id)
+    .maybeSingle();
+  const reportsReady = !reportResult.error;
+  const report = reportResult.data as {
+    status: "gerando" | "pronto" | "falhou";
+    content: ReportContent | null;
+    error_message: string | null;
+    updated_at: string;
+  } | null;
 
   // Rodadas completas, para a variação e o gráfico de evolução.
   const history = await loadHistory(painel);
@@ -201,6 +220,51 @@ export default async function PainelPage({
   return (
     <main className="flex flex-col gap-4">
       <PainelHeader clientName={current.name} runs={runs} selected={selected} section="/" analyzed={analyzed} />
+
+      <Flash message={firstParam(query.erro)} />
+
+      {reportsReady && (report || role === "wyse") ? (
+        <section aria-label="Relatório" className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-sun p-7 text-ink">
+          <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-1">
+            <h2 className="text-xl font-semibold">Relatório da rodada</h2>
+            <p className="text-[15px] leading-relaxed">
+              {report?.status === "pronto"
+                ? (report.content?.headline ?? "O relatório está pronto.")
+                : report?.status === "gerando"
+                  ? "O relatório está sendo escrito: auditoria do site, diagnóstico e recomendações. Leva alguns minutos; esta página se atualiza sozinha."
+                  : report?.status === "falhou"
+                    ? `Não foi possível gerar o relatório. ${report.error_message ?? ""}`
+                    : "Diagnóstico, lacunas de conteúdo, sugestões de artigos, auditoria técnica do site e plano de ação, em PowerPoint."}
+            </p>
+            {report?.status === "gerando" ? <AutoRefresh seconds={20} /> : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {report?.status === "pronto" ? (
+              <a
+                href={`/relatorio/${selected.id}`}
+                className="inline-flex min-h-12 items-center rounded-full bg-ink px-6 text-sm font-semibold text-paper"
+              >
+                Baixar relatório (.pptx)
+              </a>
+            ) : null}
+            {role === "wyse" && report?.status !== "gerando" ? (
+              <form action={requestReport}>
+                <input type="hidden" name="run_id" value={selected.id} />
+                <SubmitButton
+                  pendingLabel="Enviando para a fila…"
+                  className={
+                    report?.status === "pronto"
+                      ? "inline-flex min-h-12 cursor-pointer items-center rounded-full border-[1.5px] border-ink px-6 text-sm font-semibold"
+                      : "inline-flex min-h-12 cursor-pointer items-center rounded-full bg-ink px-6 text-sm font-semibold text-paper"
+                  }
+                >
+                  {report?.status === "pronto" ? "Gerar de novo" : report?.status === "falhou" ? "Tentar de novo" : "Gerar relatório"}
+                </SubmitButton>
+              </form>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {selected.kind === "teste" ? (
         <p className="rounded-[20px] bg-sun px-5 py-4 text-sm font-medium">

@@ -13,6 +13,9 @@ export const ENGINE_REQUESTED = "brandvista/rodada.motor";
 /** Evento que pede a análise das respostas de uma rodada. */
 export const ANALYSIS_REQUESTED = "brandvista/rodada.analisar";
 
+/** Evento que pede o relatório de uma rodada já analisada. */
+export const REPORT_REQUESTED = "brandvista/rodada.relatorio";
+
 /** Evento que interrompe tudo o que estiver rodando para uma rodada. */
 export const RUN_CANCELLED = "brandvista/rodada.cancelada";
 

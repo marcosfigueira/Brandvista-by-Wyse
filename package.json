@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/*.test.ts src/lib/engines/*.test.ts src/lib/inngest/*.test.ts src/lib/analysis/*.test.ts"
+    "test": "tsx --test src/lib/*.test.ts src/lib/engines/*.test.ts src/lib/inngest/*.test.ts src/lib/analysis/*.test.ts src/lib/report/*.test.ts"
   },
   "dependencies": {
     "@fontsource/poppins": "^5.3.0",
@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.119.0",
     "inngest": "^4.26.2",
     "next": "16.4.6",
+    "pptxgenjs": "^4.0.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

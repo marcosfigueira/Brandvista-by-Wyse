@@ -24,6 +24,8 @@ export async function postJson(params: {
   headers: Record<string, string>;
   body: unknown;
   options?: AskOptions;
+  /** Tempo limite desta chamada, em ms. Sem valor, vale o padrão. */
+  timeoutMs?: number;
 }): Promise<unknown> {
   const { engine, keyName, url, headers, body } = params;
   const sleep = params.options?.sleep ?? realSleep;
@@ -35,7 +37,7 @@ export async function postJson(params: {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(params.timeoutMs ?? TIMEOUT_MS),
         cache: "no-store",
       });
     } catch (error) {
