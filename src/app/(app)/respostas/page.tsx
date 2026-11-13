@@ -191,6 +191,21 @@ export default async function RespostasPage({
             </div>
           </section>
 
+          {responses.length > 0 && !inProgress ? (
+            <section className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-paper p-7 text-[15px] leading-relaxed">
+              <p className="min-w-0 flex-[1_1_320px]">
+                Todas as respostas desta rodada em um único arquivo, organizado como um livro: um capítulo por pergunta
+                e uma seção por IA. Abre em qualquer navegador e pode ser salvo como PDF.
+              </p>
+              <a
+                href={`/respostas/${selected.id}/livro`}
+                className="inline-flex min-h-12 items-center rounded-full border-[1.5px] border-ink px-6 text-sm font-semibold"
+              >
+                Baixar respostas (.html)
+              </a>
+            </section>
+          ) : null}
+
           {inProgress ? (
             <section role="status" className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-paper p-7 text-[15px] leading-relaxed">
               <AutoRefresh seconds={20} />

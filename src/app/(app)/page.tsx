@@ -247,6 +247,12 @@ export default async function PainelPage({
                 Baixar relatório (.pptx)
               </a>
             ) : null}
+            <a
+              href={`/respostas/${selected.id}/livro`}
+              className="inline-flex min-h-12 items-center rounded-full border-[1.5px] border-ink px-6 text-sm font-semibold"
+            >
+              Baixar respostas (.html)
+            </a>
             {role === "wyse" && report?.status !== "gerando" ? (
               <form action={requestReport}>
                 <input type="hidden" name="run_id" value={selected.id} />
