@@ -447,7 +447,7 @@ export default async function PainelPage({
         </div>
         {benchmark.openResponses === 0 ? (
           <p className="text-[15px] text-muted">
-            Sem base nesta rodada: o benchmark usa as respostas a perguntas que não citam a marca.
+            Sem base nesta rodada: nenhuma pergunta aberta sobre o mercado foi respondida.
           </p>
         ) : (
           <>
@@ -513,9 +513,8 @@ export default async function PainelPage({
               </div>
             ) : null}
             <p className="text-[13px] leading-relaxed text-muted">
-              Presença é a parte das respostas em que a marca aparece; posição média é a ordem em que ela é citada
-              quando aparece. Perguntas que citam um concorrente ficam fora da conta dele, pelo mesmo motivo das que
-              citam a sua marca.{benchmark.openResponses < SMALL_SAMPLE ? " Amostra pequena: leia com cautela." : ""}
+              Presença é em quantas respostas a marca aparece. Posição média é a ordem em que ela é citada quando
+              aparece: 1ª é a primeira da lista.{benchmark.openResponses < SMALL_SAMPLE ? " Amostra pequena: leia com cautela." : ""}
             </p>
           </>
         )}
