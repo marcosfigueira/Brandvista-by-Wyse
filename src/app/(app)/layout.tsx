@@ -58,10 +58,11 @@ export default async function AppLayout({
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col gap-4 p-8">
       <header className="flex flex-wrap items-center justify-between gap-4 px-1 pb-3">
-        <div className="flex items-baseline gap-2.5">
-          <span className="text-[26px] font-bold tracking-tight">BrandVista</span>
-          <span className="text-[13px] font-medium text-muted">by Wyse</span>
-        </div>
+        <Link href="/" className="flex items-end gap-2.5" aria-label="BrandVista by Wyse: ir para o Painel">
+          {/* eslint-disable-next-line @next/next/no-img-element -- arquivo local pequeno, sem otimização */}
+          <img src="/brandvista-logo.png" alt="BrandVista" width={120} height={74} />
+          <span className="pb-1 text-[13px] font-medium text-muted">by Wyse</span>
+        </Link>
         {isWyse ? (
           <nav aria-label="Seções" className="flex flex-wrap gap-2">
             {sections.map((section) => (
