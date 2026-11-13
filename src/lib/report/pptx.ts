@@ -581,7 +581,7 @@ export async function buildReportPptx(data: ReportData, audit: SiteAudit | null,
       [
         "Limites",
         C.sun,
-        "As respostas das IAs variam de uma consulta para outra, então pequenas diferenças entre rodadas podem não significar nada. As fórmulas e os pesos são uma proposta da Wyse, ainda sem validação empírica. Os erros apontados dependem dos fatos cadastrados: o que não está cadastrado não pode ser conferido. As recomendações foram escritas com apoio de IA a partir dos dados desta rodada.",
+        'As respostas das IAs variam de uma consulta para outra, então pequenas diferenças entre rodadas podem não significar nada. As fórmulas e os pesos são uma proposta da Wyse. Os "erros apontados nas respostas" dependem dos fatos cadastrados: o que não está cadastrado não pode ser conferido. As recomendações foram escritas a partir dos dados desta rodada.',
       ],
     ];
     blocks.forEach(([title, color, body], index) => {
