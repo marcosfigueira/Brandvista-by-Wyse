@@ -245,7 +245,7 @@ export default async function PainelPage({
             <span className="inline-flex min-h-[30px] items-center rounded-full bg-brand px-3.5 text-xs font-semibold tracking-wider text-ink uppercase">
               Brand Legibility
             </span>
-            <span className="text-[13px] text-[#cfd1d3]">Índice SEI</span>
+            <span className="text-[13px] text-[#cfd1d3]">Semantic Equity Index</span>
           </div>
           <div className="relative size-[240px] self-center">
             <svg
@@ -346,7 +346,7 @@ export default async function PainelPage({
                 tone="bg-brand"
                 note={
                   presence
-                    ? `${presence.numerator} de ${sample(presence.denominator, "respostas a perguntas que não citam a marca")}`
+                    ? `${presence.numerator} de ${sample(presence.denominator, "respostas")}`
                     : noBase
                 }
               />
@@ -357,7 +357,7 @@ export default async function PainelPage({
                 tone="bg-ink"
                 note={
                   erasure
-                    ? `${erasure.numerator} de ${sample(erasure.denominator, "respostas que citam outras marcas")}. Quanto menor, melhor`
+                    ? `${erasure.numerator} de ${erasure.denominator} respostas citam outras marcas, mas não a sua. Quanto menor, melhor${(erasure.denominator ?? 0) < SMALL_SAMPLE ? ". Amostra pequena: leia com cautela" : ""}`
                     : noBase
                 }
               />
@@ -453,7 +453,7 @@ export default async function PainelPage({
           <>
             <p className="text-[15px] leading-relaxed">
               {benchmark.entries.length > 1
-                ? `${current.name} está em ${brandRank}º lugar em presença entre ${benchmark.entries.length} marcas comparadas, em ${benchmark.openResponses} respostas a perguntas que não citam a marca.`
+                ? `${current.name} está em ${brandRank}º lugar em presença entre ${benchmark.entries.length} marcas comparadas, em ${benchmark.openResponses} respostas.`
                 : "Nenhum concorrente cadastrado. Cadastre os concorrentes em Marca para compará-los; as marcas que as IAs mais citaram estão listadas abaixo."}
             </p>
             <div className="overflow-x-auto">
@@ -565,12 +565,6 @@ export default async function PainelPage({
           </p>
         </section>
       ) : null}
-
-      <p className="flex flex-wrap items-center gap-2 px-1 text-[13px] leading-relaxed text-muted">
-        <Pill tone="line">Como ler</Pill>
-        As fórmulas e os pesos são uma proposta da Wyse, ainda sem validação empírica. Os indicadores são calculados
-        uma vez, ao fim da análise de cada rodada.
-      </p>
     </main>
   );
 }
