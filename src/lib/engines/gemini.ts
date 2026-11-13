@@ -7,6 +7,7 @@ import {
   type EngineRequest,
   type EngineResult,
   type EngineSource,
+  stoppedByLength,
 } from "./types";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -98,6 +99,7 @@ export async function askGemini(
   return {
     text: parsed.text,
     sources: parsed.sources,
+    truncated: stoppedByLength(payload),
     searchExecuted: parsed.searchExecuted,
     model: parsed.model ?? model,
     raw: payload,

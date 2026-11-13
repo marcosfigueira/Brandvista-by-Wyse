@@ -9,6 +9,8 @@ export type BookResponse = {
   createdAt: string;
   searchEnabled: boolean;
   searchExecuted: boolean | null;
+  /** A IA interrompeu a resposta por limite de tamanho. */
+  truncated?: boolean;
   ok: boolean;
   errorMessage: string | null;
   text: string | null;
@@ -180,7 +182,7 @@ export function buildResponsesBook(input: BookInput): string {
                       return `<li><a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.title || source.domain || (source.url as string))}</a>${source.domain ? ` · ${escapeHtml(source.domain)}` : ""}</li>`;
                     })
                     .join("")}</ol></div>`;
-            return `<article class="resposta"><p class="meta">${meta}</p>${line ? `<p class="analise">${escapeHtml(line)}</p>` : ""}<div class="texto">${renderMarkdown(answer.text ?? "")}</div>${sourceList}</article>`;
+            return `<article class="resposta"><p class="meta">${meta}</p>${line ? `<p class="analise">${escapeHtml(line)}</p>` : ""}<div class="texto">${renderMarkdown(answer.text ?? "")}</div>${answer.truncated ? '<p class="vazio">A IA interrompeu esta resposta por ter atingido o limite de tamanho: o texto acima termina onde ela parou.</p>' : ""}${sourceList}</article>`;
           })
           .join("\n");
         return `<section class="cartao motor"><h3>${engine.label}</h3>${blocks}</section>`;

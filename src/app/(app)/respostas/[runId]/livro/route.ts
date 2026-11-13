@@ -23,6 +23,7 @@ type Row = {
   created_at: string;
   search_enabled: boolean;
   search_executed: boolean | null;
+  truncated: boolean | null;
   status: string;
   error_message: string | null;
   raw_text: string | null;
@@ -48,7 +49,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
   const { data, error } = await session.supabase
     .from("responses")
     .select(
-      "engine, model, repetition, created_at, search_enabled, search_executed, status, error_message, raw_text, sources, prompt_id, prompts(text, kind, version), analyses(analyzer_version, result)",
+      "engine, model, repetition, created_at, search_enabled, search_executed, truncated, status, error_message, raw_text, sources, prompt_id, prompts(text, kind, version), analyses(analyzer_version, result)",
     )
     .eq("run_id", runId)
     .order("created_at")
@@ -67,6 +68,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
       createdAt: row.created_at,
       searchEnabled: row.search_enabled,
       searchExecuted: row.search_executed,
+      truncated: Boolean(row.truncated),
       ok: row.status === "ok",
       errorMessage: row.error_message,
       text: row.raw_text,

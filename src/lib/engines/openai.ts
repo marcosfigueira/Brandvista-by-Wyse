@@ -8,6 +8,7 @@ import {
   type EngineRequest,
   type EngineResult,
   type EngineSource,
+  stoppedByLength,
 } from "./types";
 
 const ENDPOINT = "https://api.openai.com/v1/responses";
@@ -92,6 +93,7 @@ export async function askOpenAI(
   return {
     text: parsed.text,
     sources: parsed.sources,
+    truncated: stoppedByLength(payload),
     searchExecuted: parsed.searchExecuted,
     model: parsed.model ?? model,
     raw: payload,

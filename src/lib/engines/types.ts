@@ -17,6 +17,8 @@ export type EngineResult = {
   sources: EngineSource[];
   /** Se o motor de fato consultou a web nesta resposta. */
   searchExecuted: boolean;
+  /** A IA interrompeu a resposta por ter atingido o limite de tamanho. */
+  truncated: boolean;
   /** Versão exata do modelo que respondeu. */
   model: string;
   /** Retorno completo da API, guardado para auditoria. */
@@ -85,4 +87,23 @@ export class SourceList {
       domain: domain ?? domainOf(url),
     });
   }
+}
+
+const LENGTH_STOP = /^(max_tokens|max_output_tokens|length)$/i;
+
+/**
+ * Diz se a resposta foi interrompida por limite de tamanho, olhando os campos
+ * em que cada API informa o motivo do fim da resposta.
+ */
+export function stoppedByLength(payload: unknown): boolean {
+  if (!isRecord(payload)) return false;
+  const reasons: unknown[] = [payload.stop_reason, payload.finish_reason, payload.finishReason];
+  if (isRecord(payload.incomplete_details)) reasons.push(payload.incomplete_details.reason);
+  for (const list of [payload.choices, payload.steps, payload.output]) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (isRecord(item)) reasons.push(item.finish_reason, item.finishReason, item.stop_reason);
+    }
+  }
+  return reasons.some((reason) => typeof reason === "string" && LENGTH_STOP.test(reason));
 }

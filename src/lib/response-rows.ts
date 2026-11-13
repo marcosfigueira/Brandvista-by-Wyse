@@ -13,6 +13,8 @@ export type ResponseRow = {
   repetition: number;
   search_enabled: boolean;
   search_executed: boolean | null;
+  /** A IA interrompeu a resposta por limite de tamanho. */
+  truncated: boolean;
   status: "ok" | "erro";
   error_message: string | null;
   raw_text: string | null;
@@ -28,6 +30,7 @@ export function okRow(base: Base, result: EngineResult): ResponseRow {
     ...base,
     model: result.model,
     search_executed: result.searchExecuted,
+    truncated: result.truncated,
     status: "ok",
     error_message: null,
     raw_text: result.text,
@@ -42,6 +45,7 @@ export function errorRow(base: Base, model: string, error: unknown): ResponseRow
     ...base,
     model,
     search_executed: null,
+    truncated: false,
     status: "erro",
     error_message:
       error instanceof Error ? error.message : "Erro desconhecido ao consultar o motor.",

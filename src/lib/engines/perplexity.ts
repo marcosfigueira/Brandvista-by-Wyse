@@ -8,6 +8,7 @@ import {
   type EngineRequest,
   type EngineResult,
   type EngineSource,
+  stoppedByLength,
 } from "./types";
 
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
@@ -85,6 +86,7 @@ export async function askPerplexity(
   return {
     text: parsed.text,
     sources: parsed.sources,
+    truncated: stoppedByLength(payload),
     searchExecuted: request.searchEnabled && parsed.sources.length > 0,
     model: parsed.model ?? model,
     raw: payload,
