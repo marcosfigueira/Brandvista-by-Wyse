@@ -10,6 +10,12 @@ export const RUN_REQUESTED = "brandvista/rodada.solicitada";
 /** Evento interno: a parte de um motor dentro de uma rodada. */
 export const ENGINE_REQUESTED = "brandvista/rodada.motor";
 
+/** Evento que pede a análise das respostas de uma rodada. */
+export const ANALYSIS_REQUESTED = "brandvista/rodada.analisar";
+
+/** Evento que interrompe tudo o que estiver rodando para uma rodada. */
+export const RUN_CANCELLED = "brandvista/rodada.cancelada";
+
 export type { RunPrompt };
 
 export type EngineJob = {

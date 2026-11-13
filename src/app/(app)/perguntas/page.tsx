@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { Flash, Notice, Pill, btnDark, firstParam } from "@/components/ui";
 import { getCurrentClient } from "@/lib/current-client";
+import { brandNames, mentions } from "@/lib/analysis/text";
 import { ENGINES } from "@/lib/engines";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf, type Prompt } from "@/lib/types";
@@ -38,14 +39,22 @@ export default async function PerguntasPage({
     );
   }
 
-  const [promptsResult, limitResult] = await Promise.all([
+  const [promptsResult, limitResult, clientResult] = await Promise.all([
     supabase
       .from("prompts")
       .select("id, prompt_key, version, text, kind, persona, journey_stage, search_enabled, active")
       .eq("client_id", current.id)
       .order("created_at"),
     supabase.from("client_limits").select("*").eq("client_id", current.id).maybeSingle(),
+    supabase.from("clients").select("name, name_variants").eq("id", current.id).maybeSingle(),
   ]);
+
+  // Pergunta que cita a marca não mede visibilidade: a IA vai citá-la de volta.
+  const names = brandNames(
+    clientResult.data?.name ?? current.name,
+    clientResult.data?.name_variants as string[] | null,
+  );
+  const namesBrand = (prompt: Prompt) => mentions(prompt.text, names);
 
   // Cada pergunta pode ter várias versões; a lista mostra só a mais recente.
   const latest = new Map<string, Prompt>();
@@ -60,6 +69,10 @@ export default async function PerguntasPage({
   const atLimit = activeCount >= max;
   const repetitions = (limitResult.data as { repetitions?: number } | null)?.repetitions ?? 3;
   const fullCalls = activeCount * ENGINES.length * repetitions;
+  const active = all.filter((prompt) => prompt.active);
+  const brandedCount = active.filter(namesBrand).length;
+  const unbrandedCount = active.length - brandedCount;
+  const mislabeled = active.filter((prompt) => prompt.kind === "categoria" && namesBrand(prompt)).length;
 
   const filters = [
     { href: "/perguntas", label: `Todas: ${all.length}`, selected: !tipo },
@@ -105,6 +118,16 @@ export default async function PerguntasPage({
 
       <section className="flex flex-col gap-4 rounded-card bg-paper p-7">
         <h2 className="text-xl font-semibold">Biblioteca de perguntas</h2>
+        {active.length > 0 ? (
+          <p className="text-[13px] leading-relaxed text-muted">
+            Das {active.length} perguntas ativas, {unbrandedCount} não citam a marca e medem visibilidade (presença,
+            erasure e posição); {brandedCount} citam a marca e medem só entendimento (reconhecimento, tom, atributos e
+            erros). A detecção usa o nome e as variações cadastradas em Marca.
+            {mislabeled > 0
+              ? ` Atenção: ${mislabeled} ${mislabeled === 1 ? "pergunta do tipo Categoria cita" : "perguntas do tipo Categoria citam"} a marca e ${mislabeled === 1 ? "ficará" : "ficarão"} fora da visibilidade.`
+              : ""}
+          </p>
+        ) : null}
         <nav aria-label="Filtrar por tipo" className="flex flex-wrap gap-2">
           {filters.map((filter) => (
             <Link
@@ -158,7 +181,14 @@ export default async function PerguntasPage({
                         className="size-5 cursor-pointer accent-[#000000] disabled:cursor-not-allowed"
                       />
                     </td>
-                    <td className="px-3 py-3 font-medium">{prompt.text}</td>
+                    <td className="px-3 py-3 font-medium">
+                      {prompt.text}
+                      {namesBrand(prompt) ? (
+                        <span className="ml-2 inline-flex align-middle text-xs">
+                          <Pill tone="sun">Cita a marca</Pill>
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-3">{labelOf(PROMPT_KINDS, prompt.kind)}</td>
                     <td className="px-3 py-3">{prompt.persona ?? ""}</td>
                     <td className="px-3 py-3">{prompt.journey_stage ?? ""}</td>

@@ -5,6 +5,10 @@ import { ENGINES, engineLabel } from "@/lib/engines";
 import type { EngineSource } from "@/lib/engines/types";
 import { requireWyse } from "@/lib/session";
 import { PROMPT_KINDS, labelOf } from "@/lib/types";
+import { SubmitButton } from "@/components/submit-button";
+import { ANALYZER_VERSION, type Analysis } from "@/lib/analysis/types";
+import { cancelRun, requestAnalysis } from "./actions";
+import { AnalysisBlock } from "./analysis-block";
 import { AutoRefresh } from "./auto-refresh";
 
 export const metadata = { title: "Respostas · BrandVista" };
@@ -31,6 +35,7 @@ type ResponseRow = {
   sources: EngineSource[] | null;
   latency_ms: number | null;
   prompts: { text: string; kind: string; version: number } | null;
+  analyses: { analyzer_version: string; analyzer_model: string | null; result: Analysis }[] | null;
 };
 
 const RUN_STATUS: Record<string, string> = {
@@ -39,6 +44,7 @@ const RUN_STATUS: Record<string, string> = {
   analisando: "Analisando",
   concluida: "Concluída",
   falhou: "Falhou",
+  cancelada: "Cancelada",
 };
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", {
@@ -107,7 +113,7 @@ export default async function RespostasPage({
   const { data: responsesData } = await supabase
     .from("responses")
     .select(
-      "id, engine, model, repetition, search_enabled, search_executed, status, error_message, raw_text, sources, latency_ms, prompts(text, kind, version)",
+      "id, engine, model, repetition, search_enabled, search_executed, status, error_message, raw_text, sources, latency_ms, prompts(text, kind, version), analyses(analyzer_version, analyzer_model, result)",
     )
     .eq("run_id", selected.id)
     .order("created_at");
@@ -122,7 +128,13 @@ export default async function RespostasPage({
   );
   const failed = responses.filter((response) => response.status === "erro").length;
   const expected = selected.kind === "completa" ? (selected.expected_responses ?? 0) : 0;
-  const inProgress = selected.status === "pendente" || selected.status === "coletando";
+  const collecting = selected.status === "pendente" || selected.status === "coletando";
+  const analyzing = selected.status === "analisando";
+  const inProgress = collecting || analyzing;
+  const analysisOf = (response: ResponseRow) =>
+    (response.analyses ?? []).find((item) => item.analyzer_version === ANALYZER_VERSION) ?? null;
+  const valid = responses.filter((response) => response.status === "ok");
+  const analyzedCount = valid.filter((response) => analysisOf(response)).length;
 
   return (
     <main className="flex flex-col gap-4">
@@ -180,16 +192,50 @@ export default async function RespostasPage({
           </section>
 
           {inProgress ? (
-            <section role="status" className="rounded-card bg-paper p-7 text-[15px] leading-relaxed">
+            <section role="status" className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-paper p-7 text-[15px] leading-relaxed">
               <AutoRefresh seconds={20} />
-              A coleta está rodando em segundo plano. Esta página se atualiza sozinha a cada 20 segundos; você
-              pode fechá-la e voltar depois.
+              <p className="min-w-0 flex-[1_1_320px]">
+                {collecting
+                  ? "A coleta está rodando em segundo plano."
+                  : `A análise está rodando em segundo plano: ${analyzedCount} de ${valid.length} respostas analisadas.`}{" "}
+                Esta página se atualiza sozinha a cada 20 segundos; você pode fechá-la e voltar depois.
+              </p>
+              <form action={cancelRun}>
+                <input type="hidden" name="run_id" value={selected.id} />
+                <SubmitButton
+                  pendingLabel="Cancelando…"
+                  className="inline-flex min-h-12 cursor-pointer items-center rounded-full border-[1.5px] border-ink px-6 text-sm font-semibold"
+                >
+                  Cancelar rodada
+                </SubmitButton>
+              </form>
+            </section>
+          ) : valid.length > 0 ? (
+            <section className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-paper p-7 text-[15px] leading-relaxed">
+              <p className="min-w-0 flex-[1_1_320px]">
+                {analyzedCount} de {valid.length} respostas analisadas. A análise identifica se a marca foi citada,
+                em que posição, com que tom e se há afirmações erradas, usando o que está cadastrado em Marca.
+              </p>
+              <form action={requestAnalysis}>
+                <input type="hidden" name="run_id" value={selected.id} />
+                <input type="hidden" name="redo" value={analyzedCount === valid.length ? "true" : "false"} />
+                <SubmitButton
+                  pendingLabel="Enviando para a fila…"
+                  className="inline-flex min-h-12 cursor-pointer items-center rounded-full bg-ink px-6 text-sm font-semibold text-paper"
+                >
+                  {analyzedCount === 0
+                    ? "Analisar respostas"
+                    : analyzedCount === valid.length
+                      ? "Refazer a análise"
+                      : "Analisar as que faltam"}
+                </SubmitButton>
+              </form>
             </section>
           ) : null}
 
           {responses.length === 0 ? (
             <section className="rounded-card bg-paper p-7 text-[15px] text-muted">
-              {inProgress ? "Ainda não há respostas gravadas nesta rodada." : "Esta rodada não tem respostas gravadas."}
+              {collecting ? "Ainda não há respostas gravadas nesta rodada." : "Esta rodada não tem respostas gravadas."}
             </section>
           ) : null}
 
@@ -199,6 +245,7 @@ export default async function RespostasPage({
               (source) => typeof source?.url === "string" && /^https?:\/\//i.test(source.url),
             );
             const isError = response.status === "erro";
+            const analysis = analysisOf(response);
             return (
               <article key={response.id} className="flex flex-col gap-4 rounded-card bg-paper p-7">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -238,6 +285,8 @@ export default async function RespostasPage({
                     </div>
                   </div>
                 )}
+
+                {analysis ? <AnalysisBlock analysis={analysis.result} model={analysis.analyzer_model} /> : null}
 
                 {sources.length > 0 ? (
                   <div className="flex flex-col gap-2">
