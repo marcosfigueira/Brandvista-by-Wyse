@@ -187,7 +187,7 @@ export function buildResponsesBook(input: BookInput): string {
       }).join("\n");
 
       return `<section class="capitulo" id="cap-${position + 1}">
-<header class="abertura"><span class="numero">Capítulo ${position + 1} de ${ordered.length}</span><h2>${escapeHtml(first.question)}</h2><p>Tipo: ${escapeHtml(KIND_LABEL[first.kind] ?? first.kind)} · versão ${first.version} da pergunta · ${group.length} ${group.length === 1 ? "resposta" : "respostas"}</p></header>
+<header class="abertura"><span class="numero">Pergunta ${position + 1} de ${ordered.length}</span><h2>${escapeHtml(first.question)}</h2><p>Tipo: ${escapeHtml(KIND_LABEL[first.kind] ?? first.kind)} · versão ${first.version} da pergunta · ${group.length} ${group.length === 1 ? "resposta" : "respostas"}</p></header>
 ${sections}
 <a class="voltar" href="#indice">Voltar ao índice</a>
 </section>`;
