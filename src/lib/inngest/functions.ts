@@ -1,5 +1,10 @@
 import { engineById } from "@/lib/engines";
 import { errorRow, okRow } from "@/lib/response-rows";
+import { auditSite } from "@/lib/report/audit";
+import { buildReportData } from "@/lib/report/data";
+import { writeReport } from "@/lib/report/generate";
+import type { ReportData } from "@/lib/report/types";
+import type { SiteAudit } from "@/lib/report/audit";
 import { saveSnapshots } from "@/lib/snapshots";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildAnalysis, hasIncorrectClaim } from "@/lib/analysis/build";
@@ -8,6 +13,7 @@ import { ANALYZER_VERSION, type BrandContext } from "@/lib/analysis/types";
 import {
   ANALYSIS_REQUESTED,
   ENGINE_REQUESTED,
+  REPORT_REQUESTED,
   RUN_CANCELLED,
   RUN_REQUESTED,
   inngest,
@@ -174,7 +180,7 @@ export const analyzeRun = inngest.createFunction(
 
     const plan = await step.run("carregar-analise", async () => {
       const supabase = createAdminClient();
-      const { data: run, error } = await supabase.from("runs").select("id, client_id").eq("id", runId).single();
+      const { data: run, error } = await supabase.from("runs").select("id, client_id, kind").eq("id", runId).single();
       if (error || !run) throw new Error(`Rodada não encontrada: ${error?.message ?? runId}`);
 
       const { data: rows, error: rowsError } = await supabase
@@ -190,7 +196,11 @@ export const analyzeRun = inngest.createFunction(
         .map((row) => row.id);
 
       await supabase.from("runs").update({ status: "analisando" }).eq("id", runId);
-      return { responseIds: pending, brand: await loadBrandContext(run.client_id as string) };
+      return {
+        responseIds: pending,
+        brand: await loadBrandContext(run.client_id as string),
+        kind: run.kind as string,
+      };
     });
 
     let analyzed = 0;
@@ -226,7 +236,70 @@ export const analyzeRun = inngest.createFunction(
         .eq("status", "analisando");
       if (error) throw new Error(error.message);
     });
+    // O relatório é escrito uma vez, ao fim de cada rodada completa. Em rodada
+    // de teste, só a pedido, pelo botão no Painel.
+    if (plan.kind === "completa") {
+      await step.sendEvent("pedir-relatorio", { name: REPORT_REQUESTED, data: { runId } });
+    }
     return { analyzed, failed };
+  },
+);
+
+/**
+ * Relatório da rodada: audita o site da marca, junta os dados da rodada e pede
+ * ao modelo o diagnóstico e as recomendações. Tudo fica guardado em `reports`,
+ * e o arquivo PowerPoint é montado a partir disso quando alguém baixa.
+ */
+export const writeRunReport = inngest.createFunction(
+  {
+    id: "gerar-relatorio",
+    triggers: [{ event: REPORT_REQUESTED }],
+    cancelOn: [{ event: RUN_CANCELLED, match: "data.runId" }],
+    retries: 1,
+    onFailure: async ({ event, error }) => {
+      const runId = (event.data.event.data as { runId?: string }).runId;
+      if (!runId) return;
+      await createAdminClient()
+        .from("reports")
+        .update({ status: "falhou", error_message: error.message.slice(0, 500), updated_at: new Date().toISOString() })
+        .eq("run_id", runId);
+    },
+  },
+  async ({ event, step }) => {
+    const { runId } = event.data as { runId: string };
+
+    await step.run("preparar-dados", async () => {
+      const supabase = createAdminClient();
+      const data = await buildReportData(supabase, runId);
+      const audit = await auditSite(data.client.domain);
+      const { error } = await supabase.from("reports").upsert(
+        {
+          run_id: runId,
+          status: "gerando",
+          data,
+          audit,
+          content: null,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "run_id" },
+      );
+      if (error) throw new Error(`Não foi possível gravar os dados do relatório: ${error.message}`);
+      return { responses: data.run.responses, siteReachable: audit.reachable };
+    });
+
+    return step.run("escrever-diagnostico", async () => {
+      const supabase = createAdminClient();
+      const { data: row, error } = await supabase.from("reports").select("data, audit").eq("run_id", runId).single();
+      if (error || !row?.data || !row.audit) throw new Error(`Dados do relatório não encontrados: ${error?.message ?? runId}`);
+      const { content, model } = await writeReport(row.data as ReportData, row.audit as SiteAudit);
+      const saved = await supabase
+        .from("reports")
+        .update({ status: "pronto", content, model, updated_at: new Date().toISOString() })
+        .eq("run_id", runId);
+      if (saved.error) throw new Error(`Não foi possível gravar o relatório: ${saved.error.message}`);
+      return { model, ideas: content.content_ideas.length, gaps: content.content_gaps.length };
+    });
   },
 );
 
@@ -334,4 +407,4 @@ export const collectRun = inngest.createFunction(
   },
 );
 
-export const functions = [collectRun, collectEngine, analyzeRun];
+export const functions = [collectRun, collectEngine, analyzeRun, writeRunReport];
