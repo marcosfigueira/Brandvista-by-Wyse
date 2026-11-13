@@ -1,9 +1,7 @@
-import { postJson, requireKey } from "../engines/http";
+import { callAnthropicTool } from "../engines/anthropic-tool";
 import type { SiteAudit } from "./audit";
 import { PILLARS, PRIORITIES, type Pillar, type Priority, type ReportContent, type ReportData } from "./types";
 
-const ENDPOINT = "https://api.anthropic.com/v1/messages";
-const KEY = "ANTHROPIC_API_KEY";
 const TOOL = "registrar_relatorio";
 
 /** Modelo que escreve o diagnóstico. Pode ser trocado pela variável REPORT_MODEL. */
@@ -13,7 +11,7 @@ export function reportModel(): string {
 
 const INSTRUCTIONS = `Você é um consultor sênior de GEO (Generative Engine Optimization) da Wyse Brand Intelligence.
 Você recebe os dados de uma rodada de medição de como ChatGPT, Gemini, Claude e Perplexity tratam uma marca, e uma auditoria técnica do site dela.
-Escreva o diagnóstico e as recomendações do relatório para o cliente, chamando a ferramenta ${TOOL} uma única vez.
+Escreva o diagnóstico e as recomendações do relatório para o cliente.
 
 O relatório precisa ir além da mensuração: o cliente quer saber o que fazer. Regras:
 - Use somente os dados recebidos. Não invente números, fatos sobre a marca, concorrentes, sites ou resultados. Se um dado não existe (indicador "sem base"), diga que falta base e recomende como obtê-la.
@@ -279,25 +277,15 @@ export function parseReportContent(input: unknown): ReportContent {
 
 /** Pede ao modelo o diagnóstico e as recomendações da rodada. */
 export async function writeReport(data: ReportData, audit: SiteAudit): Promise<{ content: ReportContent; model: string }> {
-  const model = reportModel();
-  const payload = await postJson({
-    engine: "gerador do relatório",
-    keyName: KEY,
-    url: ENDPOINT,
-    headers: { "x-api-key": requireKey(KEY), "anthropic-version": "2023-06-01" },
-    timeoutMs: 270_000,
-    body: {
-      model,
-      max_tokens: 12000,
-      system: INSTRUCTIONS,
-      tools: [{ name: TOOL, description: "Registra o diagnóstico e as recomendações do relatório.", input_schema: SCHEMA }],
-      tool_choice: { type: "tool", name: TOOL },
-      messages: [{ role: "user", content: buildReportInput(data, audit) }],
-    },
+  const { input, model } = await callAnthropicTool({
+    label: "gerador do relatório",
+    model: reportModel(),
+    system: INSTRUCTIONS,
+    user: buildReportInput(data, audit),
+    tool: { name: TOOL, description: "Registra o diagnóstico e as recomendações do relatório.", input_schema: SCHEMA },
+    // O modelo raciocina antes de escrever, e o raciocínio conta no limite.
+    maxTokens: 20000,
+    timeoutMs: 280_000,
   });
-  const content = isRecord(payload) && Array.isArray(payload.content) ? payload.content : [];
-  const block = content.find((item) => isRecord(item) && item.type === "tool_use" && item.name === TOOL);
-  if (!isRecord(block)) throw new Error("O modelo não registrou o relatório.");
-  const used = isRecord(payload) && typeof payload.model === "string" ? payload.model : model;
-  return { content: parseReportContent(block.input), model: used };
+  return { content: parseReportContent(input), model };
 }
