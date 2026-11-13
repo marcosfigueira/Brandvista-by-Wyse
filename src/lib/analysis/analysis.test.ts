@@ -111,3 +111,14 @@ test("readToolInput lê o bloco da ferramenta", () => {
   assert.deepEqual(input, { brand_mentioned: false });
   assert.throws(() => readToolInput({ content: [] }));
 });
+
+test("saída estruturada: lê a ferramenta ou, na falta dela, o JSON escrito no texto", async () => {
+  const { firstJsonObject, readStructured } = await import("../engines/anthropic-tool");
+  assert.deepEqual(readStructured({ content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }, "t"), { a: 1 });
+  assert.deepEqual(
+    readStructured({ content: [{ type: "thinking", thinking: "..." }, { type: "text", text: 'Segue:\n```json\n{"a": {"b": "}"}}\n```' }] }, "t"),
+    { a: { b: "}" } },
+  );
+  assert.equal(readStructured({ content: [{ type: "text", text: "sem json" }] }, "t"), null);
+  assert.equal(firstJsonObject("{ quebrado"), null);
+});
