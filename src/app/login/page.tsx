@@ -10,9 +10,10 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[1100px] flex-wrap items-stretch gap-4 p-8">
       <section className="flex min-w-0 flex-[1_1_320px] flex-col justify-between gap-10 rounded-card bg-brand p-10">
-        <div className="flex items-baseline gap-2.5">
-          <span className="text-[26px] font-bold tracking-tight">BrandVista</span>
-          <span className="text-[13px] font-medium">by Wyse</span>
+        <div className="flex items-end gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- arquivo local pequeno, sem otimização */}
+          <img src="/brandvista-logo-login.png" alt="BrandVista" width={120} height={70} />
+          <span className="pb-1 text-[13px] font-medium">by Wyse</span>
         </div>
         <p className="text-[40px] leading-[1.1] font-semibold tracking-tight">
           Como as IAs enxergam a sua marca.
